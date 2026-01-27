@@ -1,16 +1,31 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
-@Entity('users')
+@Entity()
 export class UserEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'bigint', unique: true })
+  @Column({ unique: true })
   telegramId: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  username: string | null;
+  @Column({ nullable: true })
+  username: string;
 
-  @Column()
+  @Column({ nullable: true })
   phone: string;
+
+  @Column({ default: false })
+  isBlocked: boolean; // 🚫 botni bloklagan
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastActiveAt: Date; // 🔥 active user
+
+  @CreateDateColumn()
+  createdAt: Date;
 }

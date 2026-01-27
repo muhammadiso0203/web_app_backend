@@ -1,7 +1,11 @@
+import { Repository } from 'typeorm';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { validateTelegramWebAppData, parseTelegramWebAppData } from '../telegram/utils/validation';
+import {
+  validateTelegramWebAppData,
+  parseTelegramWebAppData,
+} from '../telegram/utils/validation';
 import { TelegramAuthDto } from './dto/telegram-auth.dto';
 
 @Injectable()
@@ -9,7 +13,7 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   async validateTelegramAuth(telegramAuthDto: TelegramAuthDto) {
     const { initData } = telegramAuthDto;
