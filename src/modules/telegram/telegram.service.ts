@@ -4,24 +4,12 @@ import { Context } from 'telegraf';
 import { UsersService } from '../users/users.service';
 
 const ADMINS = ['6699946651']; // 🔴 O'ZING TELEGRAM ID
+const REQUIRED_CHANNEL = '-1003874169831'; // 👈 PRIVATE kanal ID
 
 const WEB_APP_URL =
-  process.env.WEB_APP_URL ??
-  'https://web-app-sand-six-48.vercel.app/';
+  process.env.WEB_APP_URL ?? 'https://web-app-sand-six-48.vercel.app/';
 
-const MAIN_INLINE_KEYBOARD = {
-  reply_markup: {
-    inline_keyboard: [
-      [
-        {
-          text: '🌐 Web App ni ochish',
-          web_app: { url: WEB_APP_URL },
-        },
-      ],
-      [{ text: '📊 Statistika', callback_data: 'BOT_STATS' }],
-    ],
-  },
-};
+// ================= INLINE KEYBOARDS =================
 
 const USER_INLINE_KEYBOARD = {
   reply_markup: {
@@ -36,37 +24,88 @@ const USER_INLINE_KEYBOARD = {
   },
 };
 
+const ADMIN_INLINE_KEYBOARD = {
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '📊 Statistika', callback_data: 'BOT_STATS' }],
+      [{ text: '📢 Xabar yuborish', callback_data: 'SEND_BROADCAST' }],
+    ],
+  },
+};
+
+const SUBSCRIBE_KEYBOARD = {
+  reply_markup: {
+    inline_keyboard: [
+      [
+        {
+          text: '📢 Kanalga obuna bo‘lish',
+          url: 'https://t.me/+rEFFf1YzeqM2OTcy',
+        },
+      ],
+      [
+        {
+          text: '✅ Tekshirish',
+          callback_data: 'CHECK_SUB',
+        },
+      ],
+    ],
+  },
+};
+
+// ================= SERVICE =================
+
 @Update()
 @Injectable()
 export class TelegramService {
   private readonly logger = new Logger(TelegramService.name);
+  private waitingForBroadcast = new Set<string>();
 
   constructor(private readonly usersService: UsersService) {}
+
+  // ================= SUBSCRIBE CHECK =================
+  private async isSubscribed(ctx: Context): Promise<boolean> {
+    if (!ctx.from) return false;
+
+    try {
+      const member = await ctx.telegram.getChatMember(
+        REQUIRED_CHANNEL,
+        ctx.from.id,
+      );
+
+      return ['member', 'administrator', 'creator'].includes(member.status);
+    } catch {
+      return false;
+    }
+  }
 
   // ================= START =================
   @Start()
   async onStart(@Ctx() ctx: Context) {
     if (!ctx.from) return;
 
-    const telegramId = String(ctx.from.id);
+    // ❗ MAJBURIY OBUNA
+    const subscribed = await this.isSubscribed(ctx);
+    if (!subscribed) {
+      await ctx.reply(
+        '🚫 Botdan foydalanish uchun kanalga obuna bo‘ling',
+        SUBSCRIBE_KEYBOARD,
+      );
+      return;
+    }
 
-    // 🔥 ACTIVE
+    const telegramId = String(ctx.from.id);
     await this.usersService.updateActivity(telegramId);
 
     const user = await this.usersService.findByTelegramId(telegramId);
 
     if (user) {
-      await ctx.reply('🎉 IELTS go botiga xush kelibsiz', {
-        reply_markup: { remove_keyboard: true },
-      });
-
       await ctx.reply(
-        'Quyidagilardan birini tanlang 👇',
-        ADMINS.includes(telegramId)
-          ? MAIN_INLINE_KEYBOARD
-          : USER_INLINE_KEYBOARD,
+        '🎉 *IELTS go botiga xush kelibsiz!*\n\nBotdan foydalanish uchun web-app tugmasini bosing 👇',
+        {
+          parse_mode: 'Markdown',
+          ...USER_INLINE_KEYBOARD, // ❗ har doim USER
+        },
       );
-
       return;
     }
 
@@ -80,6 +119,87 @@ export class TelegramService {
         one_time_keyboard: true,
       },
     });
+  }
+
+  // ================= ADMIN COMMANDS =================
+  @On('text')
+  async handleText(@Ctx() ctx: Context) {
+    if (!ctx.from || !ctx.message) return;
+
+    const telegramId = String(ctx.from.id);
+    const text = (ctx.message as any).text;
+
+    // 🔴 BROADCAST MODE
+    if (
+      ADMINS.includes(telegramId) &&
+      this.waitingForBroadcast.has(telegramId)
+    ) {
+      this.waitingForBroadcast.delete(telegramId);
+
+      const users = await this.usersService.findAll();
+
+      let success = 0;
+      let failed = 0;
+
+      for (const user of users) {
+        try {
+          await ctx.telegram.sendMessage(user.telegramId, text);
+          success++;
+        } catch {
+          failed++;
+        }
+      }
+
+      await ctx.reply(
+        `✅ Xabar yuborildi\n\n📨 Yuborildi: ${success}\n❌ Yetib bormadi: ${failed}`,
+        ADMIN_INLINE_KEYBOARD,
+      );
+      return;
+    }
+
+    // 🔹 ADMIN COMMAND
+    if (
+      ADMINS.includes(telegramId) &&
+      (text === '/admin' || text === '/panel')
+    ) {
+      await ctx.reply('🛠 *Admin panel*', {
+        parse_mode: 'Markdown',
+        ...ADMIN_INLINE_KEYBOARD,
+      });
+    }
+  }
+
+  @Action('SEND_BROADCAST')
+  async askBroadcast(@Ctx() ctx: Context) {
+    const telegramId = String(ctx.from?.id);
+    if (!ADMINS.includes(telegramId)) return;
+
+    this.waitingForBroadcast.add(telegramId);
+
+    await ctx.answerCbQuery();
+    await ctx.reply('✍️ Yubormoqchi bo‘lgan xabaringizni yozing');
+  }
+
+  // ================= CHECK SUB BUTTON =================
+  @Action('CHECK_SUB')
+  async checkSubscribe(@Ctx() ctx: Context) {
+    const subscribed = await this.isSubscribed(ctx);
+
+    if (!subscribed) {
+      await ctx.answerCbQuery('❌ Hali obuna emassiz', { show_alert: true });
+      return;
+    }
+
+    await ctx.answerCbQuery('✅ Obuna tasdiqlandi');
+
+    try {
+      await ctx.deleteMessage();
+    } catch {}
+
+    await ctx.reply(
+      '🎉 IELTS go botiga xush kelibsiz\nBotdan foydalanish uchun web app tugmasini bosing',
+      USER_INLINE_KEYBOARD,
+    );
   }
 
   // ================= CONTACT =================
@@ -97,8 +217,6 @@ export class TelegramService {
     }
 
     const telegramId = String(ctx.from.id);
-
-    // 🔥 ACTIVE
     await this.usersService.updateActivity(telegramId);
 
     const user = await this.usersService.findByTelegramId(telegramId);
@@ -118,14 +236,12 @@ export class TelegramService {
     }
 
     await ctx.reply(
-      '🎉 IELTS go botiga xush kelibsiz',
-      ADMINS.includes(telegramId)
-        ? MAIN_INLINE_KEYBOARD
-        : USER_INLINE_KEYBOARD,
+      '🎉 IELTS go botiga xush kelibsiz\nBotdan foydalanish uchun web app tugmasini bosing',
+      USER_INLINE_KEYBOARD,
     );
   }
 
-  // ================= BOT BLOKLANGANDA =================
+  // ================= BOT BLOCK =================
   @On('my_chat_member')
   async onBlocked(@Ctx() ctx: any) {
     const status = ctx.myChatMember?.new_chat_member?.status;
@@ -135,12 +251,9 @@ export class TelegramService {
     }
   }
 
-  // ================= STATISTIKA =================
+  // ================= STATISTICS =================
   @Action('BOT_STATS')
   async botStats(@Ctx() ctx: Context) {
-    const telegramId = String(ctx.from?.id);
-    if (!ADMINS.includes(telegramId)) return;
-
     const [total, today, blocked, active] = await Promise.all([
       this.usersService.totalUsers(),
       this.usersService.todayUsers(),

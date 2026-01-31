@@ -15,26 +15,24 @@ export class AiService {
     try {
       const random = Math.floor(Math.random() * 10000);
       const prompt = `
-You are an IELTS exam generator.
+You are an IELTS exam question generator.
 
-Generate 30 UNIQUE IELTS-style multiple-choice questions.
+Generate EXACTLY 10 UNIQUE IELTS-style multiple-choice questions.
 
 Rules:
-- Mix grammar, vocabulary, reading comprehension
-- Avoid repeating topics
-- Questions MUST be different every time
-- Random seed: ${random}
+- Question types: grammar OR vocabulary OR short reading
+- Use different topics within this set
+- Keep questions concise and clear
+- No explanations
+- No extra text
 
-Return ONLY valid JSON.
-No markdown.
-No explanations.
-
-JSON format:
+Output:
+Return ONLY valid JSON in this exact format:
 [
   {
     "question": "string",
     "options": ["A", "B", "C", "D"],
-    "correct": 0
+    "correct": 1
   }
 ]
 `;
@@ -47,7 +45,7 @@ JSON format:
             content: prompt,
           },
         ],
-        temperature: 0.8,
+        temperature: 0.4
       });
 
       const content = response.choices[0].message.content;
