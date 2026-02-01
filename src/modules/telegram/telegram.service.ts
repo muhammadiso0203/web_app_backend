@@ -238,7 +238,7 @@ export class TelegramService {
       this.usersService.activeUsers(),
     ]);
 
-    await ctx.reply(`📊 Bot statistikasi\n\n👥 ${total}\n🆕 ${today}\n🔥 ${active}\n🚫 ${blocked}`);
+    await ctx.reply(`📊 Bot statistikasi\n\n👥 Jami foydalanuvchilar: ${total}\n🆕 Bugun yangi foydalanuvchilar: ${today}\n🔥 Aktiv foydalanuvchilar: ${active}\n🚫 Botni bloklangan foydalanuvchilar: ${blocked}`);
     await ctx.answerCbQuery();
   }
 

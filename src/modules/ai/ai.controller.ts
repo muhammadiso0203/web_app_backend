@@ -21,4 +21,16 @@ export class AiController {
   ) {
     return this.aiService.checkResult(body);
   }
+
+  @Post('detailed-feedback')
+  async generateFeedback(
+    @Body()
+    body: {
+      telegramId: string;
+      questions: any[];
+      userAnswers: number[];
+    },
+  ) {
+    return this.aiService.generateFeedback(body);
+  }
 }

@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import OpenAI from 'openai';
 import { TelegramNotifyService } from '../telegram/telegram-notify-service';
 import { UsersService } from '../users/users.service';
@@ -6,28 +11,36 @@ import { SubscriptionsService } from '../subscription/subscription.service';
 
 @Injectable()
 export class AiService {
+  private readonly logger = new Logger(AiService.name);
+
   constructor(
     private readonly telegramNotify: TelegramNotifyService,
     private readonly usersService: UsersService,
     private readonly subscriptionsService: SubscriptionsService,
-  ) { }
+  ) {}
 
-  private openai = new OpenAI({
+  private readonly openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
 
-  // 1️⃣ AI orqali 30 ta test yaratish
+  /* =========================
+     1️⃣ AI TEST GENERATION
+  ========================= */
+
   async generateTest(telegramId: string) {
-    // 🛡 PRO tekshiruvi va limit
+    // 🛡 User tekshiruvi
     const user = await this.usersService.findByTelegramId(telegramId);
     if (!user) {
       throw new ForbiddenException('Foydalanuvchi topilmadi');
     }
 
+    // 🛡 PRO + limit
     const isPro = await this.subscriptionsService.hasActivePro(telegramId);
 
     if (!isPro && user.testAttempts >= 3) {
-      throw new ForbiddenException('Sizning bepul urinishlaringiz tugadi. Davom etish uchun PRO obunani sotib oling.');
+      throw new ForbiddenException(
+        'Sizning bepul urinishlaringiz tugadi. Davom etish uchun PRO obunani sotib oling.',
+      );
     }
 
     try {
@@ -52,6 +65,7 @@ Return valid JSON in this exact format:
   }
 ]
 `;
+
         const response = await this.openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: prompt }],
@@ -60,33 +74,39 @@ Return valid JSON in this exact format:
         });
 
         const content = response.choices[0].message.content || '[]';
-        const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleaned);
+
+        return JSON.parse(
+          content.replace(/```json/g, '').replace(/```/g, '').trim(),
+        );
       };
 
-      // 🏎️ 3 ta parallel so'rov yuboramiz (3 * 10 = 30 ta test)
-      // Bittada 30 ta kutishdan ko'ra, parallel 10 tadan 3 ta so'rov ancha tez ishlaydi
+      // 🚀 Parallel (3 × 10 = 30)
       const results = await Promise.all([
         generateQuestions(10),
         generateQuestions(10),
         generateQuestions(10),
       ]);
 
-      // Natijalarni bitta arrayga yig'amiz
       const allTests = results.flat();
 
-      // Urinishlar sonini oshiramiz
+      // 📈 Attempt++
       await this.usersService.incrementTestAttempts(telegramId);
 
       return allTests;
     } catch (error) {
       if (error instanceof ForbiddenException) throw error;
-      console.error('AI generateTest error:', error);
-      throw new InternalServerErrorException('AI test generation failed');
+
+      this.logger.error('AI generateTest error', error);
+      throw new InternalServerErrorException(
+        'AI test generation failed',
+      );
     }
   }
 
-  // 2️⃣ AI orqali test natijasini hisoblash
+  /* =========================
+     2️⃣ CHECK TEST RESULT
+  ========================= */
+
   async checkResult(data: {
     tests: any[];
     answers: number[];
@@ -114,43 +134,33 @@ Rules:
 
 Return ONLY valid JSON:
 {
-  "total": 30,
+  "total": number,
   "correct": number,
   "wrong": number,
-  "level": "A2 | B1 | B2",
+  "level": "A2 | B1 | B2 | C1",
   "feedback": "string"
 }
-      `;
+`;
 
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
       });
 
       const content = response.choices[0].message.content;
-
       if (!content) {
         throw new Error('Empty AI response');
       }
 
       const result = JSON.parse(
-        content
-          .replace(/```json/g, '')
-          .replace(/```/g, '')
-          .trim(),
+        content.replace(/```json/g, '').replace(/```/g, '').trim(),
       );
 
-      /* =========================
-       🔔 TELEGRAMGA YUBORISH
-    ========================= */
-
-      const percent = Math.round((result.correct / result.total) * 100);
+      /* 🔔 Telegram notify (optional) */
+      const percent = Math.round(
+        (result.correct / result.total) * 100,
+      );
 
       const message = `
 📊 *IELTS Test Result*
@@ -161,19 +171,118 @@ Return ONLY valid JSON:
 📈 Natija: ${percent}%
 
 💬 ${result.feedback}
-    `;
+`;
 
       try {
         await this.telegramNotify.sendResult(message);
-      } catch (e) {
-        console.error('Telegram send failed, skipped');
+      } catch {
+        this.logger.warn('Telegram notify skipped');
       }
 
-      // 🔹 frontendga qaytariladi
       return result;
     } catch (error) {
-      console.error('AI checkResult error:', error);
-      throw new InternalServerErrorException('AI result checking failed');
+      this.logger.error('AI checkResult error', error);
+      throw new InternalServerErrorException(
+        'AI result checking failed',
+      );
+    }
+  }
+
+  /* =========================
+     3️⃣ AI FEEDBACK (PRO ONLY)
+  ========================= */
+
+  async generateFeedback(params: {
+    telegramId: string;
+    questions: {
+      question: string;
+      correct: number;
+      options: string[];
+    }[];
+    userAnswers: number[];
+  }) {
+    const { telegramId, questions, userAnswers } = params;
+
+    // 🔒 PRO check
+    const isPro = await this.subscriptionsService.hasActivePro(
+      telegramId,
+    );
+
+    if (!isPro) {
+      return {
+        feedback:
+          '🔒 To‘liq AI feedback faqat PRO foydalanuvchilar uchun.',
+      };
+    }
+
+    // ❌ Mistakes
+    const mistakes = questions
+      .map((q, i) => {
+        if (userAnswers[i] !== q.correct) {
+          return {
+            question: q.question,
+            correctAnswer: q.options[q.correct],
+            userAnswer:
+              userAnswers[i] === -1
+                ? 'No answer'
+                : q.options[userAnswers[i]],
+          };
+        }
+        return null;
+      })
+      .filter(Boolean) as {
+      question: string;
+      correctAnswer: string;
+      userAnswer: string;
+    }[];
+
+    const mistakesText =
+      mistakes.length > 0
+        ? mistakes
+            .slice(0, 5)
+            .map(
+              (m, idx) =>
+                `${idx + 1}. Question: "${m.question}"
+User answer: ${m.userAnswer}
+Correct answer: ${m.correctAnswer}`,
+            )
+            .join('\n\n')
+        : 'The user answered all questions correctly.';
+
+    const prompt = `
+You are an IELTS examiner.
+
+Analyze the test results and give feedback:
+- Identify weak grammar or vocabulary areas
+- Mention common mistake patterns
+- Give 3 short improvement tips
+- Use simple English
+- Max 120 words
+
+Test mistakes:
+${mistakesText}
+`;
+
+    try {
+      const response =
+        await this.openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.4,
+          max_tokens: 300,
+        });
+
+      return {
+        feedback:
+          response.choices[0].message.content ??
+          'No feedback generated.',
+      };
+    } catch (error) {
+      this.logger.error('AI feedback error', error);
+      return {
+        feedback:
+          '⚠️ AI feedback vaqtincha mavjud emas. Keyinroq urinib ko‘ring.',
+      };
     }
   }
 }
