@@ -10,7 +10,7 @@ export class UsersService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly repo: Repository<UserEntity>,
-  ) {}
+  ) { }
 
   async create(dto: createUserDto) {
     const exist = await this.repo.findOne({
@@ -106,5 +106,12 @@ export class UsersService {
   // 🚫 BLOK QILINDI DEB BELGILASH
   async markBlocked(telegramId: string) {
     await this.repo.update({ telegramId }, { isBlocked: true });
+  }
+
+  async incrementTestAttempts(telegramId: string) {
+    const user = await this.findByTelegramId(telegramId);
+    if (user) {
+      await this.repo.update({ telegramId }, { testAttempts: user.testAttempts + 1 });
+    }
   }
 }

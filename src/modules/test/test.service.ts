@@ -27,7 +27,6 @@ export class TestsService {
     const message = `
 🧪 *Test natijasi*
 
-👤 *Foydalanuvchi:* ${user?.username || "Nomaʼlum"}
 📛 *Ism:* ${user?.firstName || "-"}
 
 📊 *Natijalar:*

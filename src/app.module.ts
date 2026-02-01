@@ -7,10 +7,11 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { AiModule } from './modules/ai/ai.module';
 import { TestModule } from './modules/test/test.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env', }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -23,6 +24,7 @@ import { TestModule } from './modules/test/test.module';
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
         synchronize: true,
+        
       }),
     }),
     AiModule,
@@ -30,6 +32,7 @@ import { TestModule } from './modules/test/test.module';
     TelegramModule,
     AuthModule,
     TestModule,
+    SubscriptionModule,
   ],
 })
 export class AppModule implements OnModuleInit {

@@ -3,11 +3,11 @@ import { AiService } from './ai.service';
 
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(private readonly aiService: AiService) { }
 
   @Post('generate-test')
-  async generateTest() {
-    return this.aiService.generateTest();
+  async generateTest(@Body() body: { telegramId: string }) {
+    return this.aiService.generateTest(body.telegramId);
   }
 
 

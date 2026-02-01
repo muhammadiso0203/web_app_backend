@@ -21,10 +21,16 @@ export class UserEntity {
   phone: string;
 
   @Column({ default: false })
+  subscriptions: boolean
+
+  @Column({ default: false })
   isBlocked: boolean; // 🚫 botni bloklagan
 
   @Column({ type: 'timestamp', nullable: true })
   lastActiveAt: Date; // 🔥 active user
+
+  @Column({ default: 0 })
+  testAttempts: number;
 
   @CreateDateColumn()
   createdAt: Date;

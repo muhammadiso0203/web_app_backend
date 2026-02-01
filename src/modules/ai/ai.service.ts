@@ -1,67 +1,86 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import OpenAI from 'openai';
 import { TelegramNotifyService } from '../telegram/telegram-notify-service';
+import { UsersService } from '../users/users.service';
+import { SubscriptionsService } from '../subscription/subscription.service';
 
 @Injectable()
 export class AiService {
-  constructor(private readonly telegramNotify: TelegramNotifyService) {}
+  constructor(
+    private readonly telegramNotify: TelegramNotifyService,
+    private readonly usersService: UsersService,
+    private readonly subscriptionsService: SubscriptionsService,
+  ) { }
 
   private openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
 
   // 1️⃣ AI orqali 30 ta test yaratish
-  async generateTest() {
-    try {
-      const random = Math.floor(Math.random() * 10000);
-      const prompt = `
-You are an IELTS exam question generator.
+  async generateTest(telegramId: string) {
+    // 🛡 PRO tekshiruvi va limit
+    const user = await this.usersService.findByTelegramId(telegramId);
+    if (!user) {
+      throw new ForbiddenException('Foydalanuvchi topilmadi');
+    }
 
-Generate EXACTLY 10 UNIQUE IELTS-style multiple-choice questions.
+    const isPro = await this.subscriptionsService.hasActivePro(telegramId);
+
+    if (!isPro && user.testAttempts >= 3) {
+      throw new ForbiddenException('Sizning bepul urinishlaringiz tugadi. Davom etish uchun PRO obunani sotib oling.');
+    }
+
+    try {
+      const generateQuestions = async (count: number) => {
+        const prompt = `
+You are an IELTS exam question generator.
+Generate ${count} UNIQUE IELTS-style multiple-choice questions.
 
 Rules:
-- Question types: grammar OR vocabulary OR short reading
-- Use different topics within this set
-- Keep questions concise and clear
+- Question types: grammar, vocabulary, or short reading
+- Use different topics
+- Keep questions clear and concise
 - No explanations
-- No extra text
 
 Output:
-Return ONLY valid JSON in this exact format:
+Return valid JSON in this exact format:
 [
   {
     "question": "string",
     "options": ["A", "B", "C", "D"],
-    "correct": 1
+    "correct": 0
   }
 ]
 `;
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.5,
+          max_tokens: 2000,
+        });
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.4
-      });
+        const content = response.choices[0].message.content || '[]';
+        const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleaned);
+      };
 
-      const content = response.choices[0].message.content;
+      // 🏎️ 3 ta parallel so'rov yuboramiz (3 * 10 = 30 ta test)
+      // Bittada 30 ta kutishdan ko'ra, parallel 10 tadan 3 ta so'rov ancha tez ishlaydi
+      const results = await Promise.all([
+        generateQuestions(10),
+        generateQuestions(10),
+        generateQuestions(10),
+      ]);
 
-      if (!content) {
-        throw new Error('Empty AI response');
-      }
+      // Natijalarni bitta arrayga yig'amiz
+      const allTests = results.flat();
 
-      const cleaned = content
-        .replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim();
+      // Urinishlar sonini oshiramiz
+      await this.usersService.incrementTestAttempts(telegramId);
 
-      // AI qaytargan JSON stringni objectga aylantiramiz
-      return JSON.parse(cleaned);
+      return allTests;
     } catch (error) {
+      if (error instanceof ForbiddenException) throw error;
       console.error('AI generateTest error:', error);
       throw new InternalServerErrorException('AI test generation failed');
     }
@@ -133,16 +152,9 @@ Return ONLY valid JSON:
 
       const percent = Math.round((result.correct / result.total) * 100);
 
-      const userName = data.user?.username
-        ? `@${data.user.username}`
-        : data.user?.firstName
-          ? data.user.firstName
-          : 'Nomaʼlum foydalanuvchi';
-
       const message = `
 📊 *IELTS Test Result*
 
-👤 Foydalanuvchi: ${userName}
 ✅ To‘g‘ri: ${result.correct}
 ❌ Xato: ${result.wrong}
 🎯 Daraja: ${result.level}
