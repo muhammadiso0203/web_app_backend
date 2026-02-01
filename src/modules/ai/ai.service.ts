@@ -17,7 +17,7 @@ export class AiService {
     private readonly telegramNotify: TelegramNotifyService,
     private readonly usersService: UsersService,
     private readonly subscriptionsService: SubscriptionsService,
-  ) {}
+  ) { }
 
   private readonly openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -188,6 +188,80 @@ Return ONLY valid JSON:
     }
   }
 
+
+  async generateTranslateTest(telegramId: string) {
+    // 🛡 User tekshiruvi
+    const user = await this.usersService.findByTelegramId(telegramId);
+    if (!user) {
+      throw new ForbiddenException('Foydalanuvchi topilmadi');
+    }
+
+    // 🛡 PRO + limit
+    const isPro = await this.subscriptionsService.hasActivePro(telegramId);
+
+    if (!isPro && user.testAttempts >= 3) {
+      throw new ForbiddenException(
+        'Sizning bepul urinishlaringiz tugadi. Davom etish uchun PRO obunani sotib oling.',
+      );
+    }
+
+    try {
+      const prompt = `
+You are an IELTS vocabulary test generator.
+
+Generate EXACTLY 10 UNIQUE English words.
+For each word:
+- Provide 1 correct Uzbek translation
+- Provide 2 incorrect but plausible Uzbek options
+
+Rules:
+- Uzbek language must be latin
+- Options must be short and clear
+- Correct answer index must be 0
+- Shuffle options so correct is not always first
+- No explanations
+- No extra text
+
+Output:
+Return ONLY valid JSON in this exact format:
+[
+  {
+    "question": "English word",
+    "options": ["uzbek1", "uzbek2", "uzbek3"],
+    "correct": number
+  }
+]
+`;
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.4,
+        max_tokens: 1000,
+      });
+
+      const content = response.choices[0].message.content || '[]';
+
+      const tests = JSON.parse(
+        content.replace(/```json/g, '').replace(/```/g, '').trim(),
+      );
+
+      // 📈 Attempt++
+      await this.usersService.incrementTestAttempts(telegramId);
+
+      return tests;
+    } catch (error) {
+      if (error instanceof ForbiddenException) throw error;
+
+      this.logger.error('AI generateTranslateTest error', error);
+      throw new InternalServerErrorException(
+        'AI translation test generation failed',
+      );
+    }
+  }
+
+
+
   /* =========================
      3️⃣ AI FEEDBACK (PRO ONLY)
   ========================= */
@@ -231,22 +305,22 @@ Return ONLY valid JSON:
         return null;
       })
       .filter(Boolean) as {
-      question: string;
-      correctAnswer: string;
-      userAnswer: string;
-    }[];
+        question: string;
+        correctAnswer: string;
+        userAnswer: string;
+      }[];
 
     const mistakesText =
       mistakes.length > 0
         ? mistakes
-            .slice(0, 5)
-            .map(
-              (m, idx) =>
-                `${idx + 1}. Question: "${m.question}"
+          .slice(0, 5)
+          .map(
+            (m, idx) =>
+              `${idx + 1}. Question: "${m.question}"
 User answer: ${m.userAnswer}
 Correct answer: ${m.correctAnswer}`,
-            )
-            .join('\n\n')
+          )
+          .join('\n\n')
         : 'The user answered all questions correctly.';
 
     const prompt = `

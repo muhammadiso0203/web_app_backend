@@ -10,6 +10,11 @@ export class AiController {
     return this.aiService.generateTest(body.telegramId);
   }
 
+  @Post('generate-translate-test')
+  async generateTranslateTest(@Body() body: { telegramId: string }) {
+    return this.aiService.generateTranslateTest(body.telegramId);
+  }
+
 
   @Post('check-result')
   async checkResult(
