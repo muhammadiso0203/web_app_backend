@@ -217,13 +217,12 @@ For each word:
 Rules:
 - Uzbek language must be latin
 - Options must be short and clear
-- Correct answer index must be 0
-- Shuffle options so correct is not always first
-- No explanations
-- No extra text
+- "correct" must be the INDEX (0, 1 or 2) of the correct option in the "options" array
+- Do NOT include any explanations or additional text
+- Do NOT wrap the JSON in markdown code blocks
 
 Output:
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON in this exact format (array of 10 items):
 [
   {
     "question": "English word",
@@ -242,9 +241,31 @@ Return ONLY valid JSON in this exact format:
 
       const content = response.choices[0].message.content || '[]';
 
-      const tests = JSON.parse(
-        content.replace(/```json/g, '').replace(/```/g, '').trim(),
-      );
+      let tests;
+      try {
+        const cleaned = content
+          .replace(/```json/gi, '')
+          .replace(/```/g, '')
+          .trim();
+
+        // Agar butun javob toza JSON bo'lmasa, faqat birinchi massivni ajratib olamiz
+        const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
+        const jsonText = arrayMatch ? arrayMatch[0] : cleaned;
+
+        tests = JSON.parse(jsonText);
+
+        if (!Array.isArray(tests)) {
+          throw new Error('AI did not return an array');
+        }
+      } catch (parseError) {
+        this.logger.error('AI generateTranslateTest parse error', {
+          content,
+          parseError,
+        });
+        throw new InternalServerErrorException(
+          'AI translation test parsing failed',
+        );
+      }
 
       // 📈 Attempt++
       await this.usersService.incrementTestAttempts(telegramId);
