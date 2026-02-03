@@ -69,7 +69,7 @@ export class SubscriptionsService {
           : null; // LIFETIME
 
     const price =
-      plan === 'MONTHLY' ? 29000 : plan === 'QUARTERLY' ? 79000 : 299000;
+      plan === 'MONTHLY' ? 10000 : plan === 'QUARTERLY' ? 20000 : 40000;
 
     const subscription = this.subscriptionRepo.create({
       user,

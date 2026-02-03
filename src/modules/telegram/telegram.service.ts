@@ -185,6 +185,54 @@ export class TelegramService {
     }
   }
 
+  @On('contact')
+  async onContact(@Ctx() ctx: BotContext) {
+    if (!ctx.from || !ctx.message || !('contact' in ctx.message)) return;
+
+    const contact = (ctx.message as any).contact;
+
+    // ❗ Faqat o‘z kontaktini yuborgan bo‘lishi kerak
+    if (contact.user_id !== ctx.from.id) {
+      await ctx.reply('❌ Iltimos, o‘zingizning telefon raqamingizni yuboring');
+      return;
+    }
+
+    const telegramId = String(ctx.from.id);
+
+    // User bormi tekshiramiz
+    const exists = await this.usersService.findByTelegramId(telegramId);
+
+    if (exists) {
+      await ctx.reply(
+        '🌐 Web App orqali testlarni ishlashingiz mumkin 👇',
+        USER_INLINE_KEYBOARD,
+      );
+      return;
+    }
+
+    // Yangi user yaratamiz
+    await this.usersService.create({
+      telegramId,
+      phone: contact.phone_number,
+      username: ctx.from.username ?? '',
+    });
+
+    await ctx.reply('✅ Ro‘yxatdan o‘tdingiz! Xush kelibsiz 🎉');
+    await ctx.reply(
+      '🌐 Web App orqali testlarni ishlashingiz mumkin 👇',
+      USER_INLINE_KEYBOARD,
+    );
+
+    // PRO tugmasi (admin bo‘lmasa)
+    if (!ADMINS.includes(telegramId)) {
+      await ctx.reply(
+        '👇 Qo‘shimcha imkoniyatlar:',
+        USER_REPLY_KEYBOARD,
+      );
+    }
+  }
+
+
   @Action(/PRO_(MONTHLY)/)
   async onConfirmPro(@Ctx() ctx: BotContext) {
     if (!ADMINS.includes(String(ctx.from?.id))) return;
