@@ -8,8 +8,9 @@ const ADMINS = ['6699946651'];
 const REQUIRED_CHANNEL = '-1003874169831';
 
 interface BotSession {
-  step?: 'WAIT_USER_ID_FOR_PRO' | 'WAIT_PLAN_FOR_PRO';
+  step?: 'WAIT_USER_ID_FOR_PRO' | 'WAIT_USER_ID_FOR_REMOVE_PRO' | 'WAIT_REASON_FOR_REMOVE_PRO';
   userId?: number;
+  removeReason?: string;
 }
 
 interface BotContext extends Context {
@@ -23,6 +24,8 @@ const ADMIN_INLINE_KEYBOARD = Markup.inlineKeyboard([
   [Markup.button.callback('📊 Statistika', 'BOT_STATS')],
   [Markup.button.callback('📢 Xabar yuborish', 'SEND_BROADCAST')],
   [Markup.button.callback('👑 PRO berish', 'ADMIN_GIVE_PRO')],
+  [Markup.button.callback('❌ PRO olib tashlash', 'ADMIN_REMOVE_PRO')],
+  [Markup.button.callback('👑 PRO obunachilar', 'PRO_USERS_LIST')],
 ]);
 
 const USER_INLINE_KEYBOARD = Markup.inlineKeyboard([
@@ -118,6 +121,16 @@ export class TelegramService {
     return;
   }
 
+  @Action('ADMIN_REMOVE_PRO')
+  async onAdminRemovePro(@Ctx() ctx: BotContext) {
+    if (!ADMINS.includes(String(ctx.from?.id))) return;
+    if (!ctx.session) ctx.session = {};
+    ctx.session.step = 'WAIT_USER_ID_FOR_REMOVE_PRO';
+    await ctx.answerCbQuery();
+    await ctx.reply('👤 PRO olib tashlanadigan foydalanuvchi ID sini yuboring:');
+    return;
+  }
+
   @On('text')
   async onText(@Ctx() ctx: BotContext) {
     if (!ctx.from || !ctx.message) return;
@@ -168,19 +181,82 @@ export class TelegramService {
 
     // PRO Logic: Step 1 -> Get User ID
     if (ctx.session?.step === 'WAIT_USER_ID_FOR_PRO') {
-      const targetId = Number(text);
-      if (isNaN(targetId)) {
-        await ctx.reply('❌ User ID noto‘g‘ri, faqat raqam yuboring:');
+      const targetTelegramId = text.trim();
+
+      ctx.session.step = undefined;
+      ctx.session.userId = undefined;
+
+      try {
+        const alreadyPro = await this.subscriptionsService.hasActivePro(targetTelegramId);
+
+        if (alreadyPro) {
+          await ctx.reply(`Bu foydalanuvchi allaqachon PRO obunaga ega 👑`);
+          return;
+        }
+
+        await this.subscriptionsService.activate(targetTelegramId, 'MONTHLY');
+        await ctx.reply(`✅ Foydalanuvchi ${targetTelegramId} ga 1 oylik PRO obunasi berildi! 👑`);
+      } catch (error) {
+        this.logger.error('Error activating PRO:', error);
+        await ctx.reply(`❌ PRO berishda xatolik: ${error.message}`);
+      }
+      return;
+    }
+
+    // PRO Removal: Step 1 -> Get User ID
+    if (ctx.session?.step === 'WAIT_USER_ID_FOR_REMOVE_PRO') {
+      const targetTelegramId = text.trim();
+
+      const user = await this.usersService.findByTelegramId(targetTelegramId);
+      if (!user) {
+        await ctx.reply('❌ Bunday foydalanuvchi topilmadi');
+        ctx.session.step = undefined;
         return;
       }
 
-      if (!ctx.session) ctx.session = {};
-      ctx.session.userId = targetId;
-      ctx.session.step = 'WAIT_PLAN_FOR_PRO';
+      ctx.session.userId = Number(user.id); // Internal ID (though telegramId would work too if we update session)
+      (ctx.session as any).targetTelegramId = targetTelegramId;
+      ctx.session.step = 'WAIT_REASON_FOR_REMOVE_PRO';
+      await ctx.reply(`👤 Foydalanuvchi: ${targetTelegramId}\n❓ PRO olib tashlash sababini kiriting:`);
+      return;
+    }
 
-      await ctx.reply(`👤 Foydalanuvchi: ${targetId}\n📦 Tarifni tanlang:`, Markup.inlineKeyboard([
-        [Markup.button.callback('1 oy', 'PRO_MONTHLY')],
-      ]));
+    // PRO Removal: Step 2 -> Get Reason and Deactivate
+    if (ctx.session?.step === 'WAIT_REASON_FOR_REMOVE_PRO') {
+      const targetTelegramId = (ctx.session as any).targetTelegramId;
+      const reason = text;
+
+      if (!targetTelegramId) {
+        await ctx.reply('❌ Xatolik: User ID topilmadi');
+        ctx.session.step = undefined;
+        return;
+      }
+
+      try {
+        const user = await this.usersService.findByTelegramId(targetTelegramId);
+        await this.subscriptionsService.deactivateByTelegramId(targetTelegramId);
+
+        // Notify user
+        try {
+          if (user && user.telegramId) {
+            await ctx.telegram.sendMessage(
+              user.telegramId,
+              `🚫 Sizdan PRO obunasi olib tashlandi.\n\n⚠️ Sababi: ${reason}`
+            );
+          }
+        } catch (err) {
+          this.logger.error(`Could not notify user ${targetTelegramId}: ${err.message}`);
+        }
+
+        await ctx.reply(`✅ Foydalanuvchi ${targetTelegramId} dan PRO olib tashlandi va xabar yuborildi.`);
+      } catch (error) {
+        this.logger.error('Error deactivating PRO:', error);
+        await ctx.reply(`❌ PRO olib tashlashda xatolik: ${error.message}`);
+      }
+
+      ctx.session.step = undefined;
+      ctx.session.userId = undefined;
+      (ctx.session as any).targetTelegramId = undefined;
       return;
     }
   }
@@ -191,15 +267,12 @@ export class TelegramService {
 
     const contact = (ctx.message as any).contact;
 
-    // ❗ Faqat o‘z kontaktini yuborgan bo‘lishi kerak
     if (contact.user_id !== ctx.from.id) {
       await ctx.reply('❌ Iltimos, o‘zingizning telefon raqamingizni yuboring');
       return;
     }
 
     const telegramId = String(ctx.from.id);
-
-    // User bormi tekshiramiz
     const exists = await this.usersService.findByTelegramId(telegramId);
 
     if (exists) {
@@ -210,7 +283,6 @@ export class TelegramService {
       return;
     }
 
-    // Yangi user yaratamiz
     await this.usersService.create({
       telegramId,
       phone: contact.phone_number,
@@ -223,49 +295,12 @@ export class TelegramService {
       USER_INLINE_KEYBOARD,
     );
 
-    // PRO tugmasi (admin bo‘lmasa)
     if (!ADMINS.includes(telegramId)) {
       await ctx.reply(
         '👇 Qo‘shimcha imkoniyatlar:',
         USER_REPLY_KEYBOARD,
       );
     }
-  }
-
-
-  @Action(/PRO_(MONTHLY)/)
-  async onConfirmPro(@Ctx() ctx: BotContext) {
-    if (!ADMINS.includes(String(ctx.from?.id))) return;
-
-    const userId = ctx.session?.userId;
-    const plan = ctx.match[1] as any;
-
-    if (!userId || ctx.session.step !== 'WAIT_PLAN_FOR_PRO') {
-      await ctx.answerCbQuery('❌ Xatolik yuz berdi');
-      return;
-    }
-
-    try {
-      const telegramId = String(userId);
-      const alreadyPro = await this.subscriptionsService.hasActivePro(telegramId);
-
-      if (alreadyPro) {
-        await ctx.reply(`Bu foydalanuvchi allaqachon PRO obunaga ega 👑`);
-        return;
-      }
-
-      await this.subscriptionsService.activate(userId, plan);
-
-      ctx.session.step = undefined;
-      ctx.session.userId = undefined;
-
-      await ctx.answerCbQuery();
-      await ctx.reply(`✅ Foydalanuvchi ${userId} ga 1 oylik PRO obunasi berildi! 👑`);
-    } catch (error) {
-      this.logger.error('Error activating PRO:', error);
-      await ctx.reply(`❌ PRO berishda xatolik: ${error.message}`);
-    }
-    return;
   }
 
   @Action('SEND_BROADCAST')
@@ -287,6 +322,44 @@ export class TelegramService {
     ]);
 
     await ctx.reply(`📊 Bot statistikasi\n\n👥 Jami foydalanuvchilar: ${total}\n🆕 Bugun yangi foydalanuvchilar: ${today}\n🔥 Aktiv foydalanuvchilar: ${active}\n🚫 Botni bloklangan foydalanuvchilar: ${blocked}`);
+    await ctx.answerCbQuery();
+  }
+
+  @Action('PRO_USERS_LIST')
+  async onProUsersList(@Ctx() ctx: BotContext) {
+    if (!ADMINS.includes(String(ctx.from?.id))) return;
+
+    const proUsers = await this.subscriptionsService.getActiveProUsers();
+
+    if (proUsers.length === 0) {
+      await ctx.reply('📭 Hozircha PRO obunachilar yo‘q');
+      await ctx.answerCbQuery();
+      return;
+    }
+
+    let message = '👑 PRO obunachilar ro‘yxati:\n\n';
+    proUsers.forEach((sub, index) => {
+      const user = sub.user;
+      const username = user.username ? `@${user.username}` : 'No username';
+      const phone = user.phone || 'No phone';
+      const expiresAt = sub.expiresAt
+        ? new Date(sub.expiresAt).toLocaleDateString()
+        : 'LIFETIME';
+
+      message += `${index + 1}. ${username} (ID: ${user.telegramId})\n📞 ${phone}\n📦 Plan: ${sub.plan}\n⏳ Muddat: ${expiresAt}\n\n`;
+    });
+
+    message += `\nTotal: ${proUsers.length} ta PRO obunachi`;
+
+    if (message.length > 4000) {
+      const chunks = message.match(/[\s\S]{1,4000}/g) || [];
+      for (const chunk of chunks) {
+        await ctx.reply(chunk);
+      }
+    } else {
+      await ctx.reply(message);
+    }
+
     await ctx.answerCbQuery();
   }
 

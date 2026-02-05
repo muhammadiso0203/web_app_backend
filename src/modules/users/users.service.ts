@@ -35,26 +35,22 @@ export class UsersService {
     });
   }
 
-  findOne(id: number) {
-    const user = this.repo.findOne({ where: { id } });
-    if (!user) {
-      return 'Foydalanuvchi topilmadi';
-    }
-    return user;
+  async findOne(id: number) {
+    return this.repo.findOne({ where: { id } });
   }
 
-  update(id: number, dto: updateUserDto) {
-    const user = this.repo.findOne({ where: { id } });
+  async update(id: number, dto: updateUserDto) {
+    const user = await this.findOne(id);
     if (!user) {
-      return 'Foydalanuvchi topilmadi';
+      return null;
     }
     return this.repo.update(id, dto);
   }
 
-  remove(id: number) {
-    const user = this.repo.findOne({ where: { id } });
+  async remove(id: number) {
+    const user = await this.findOne(id);
     if (!user) {
-      return 'Foydalanuvchi topilmadi';
+      return null;
     }
     return this.repo.delete(id);
   }

@@ -13,7 +13,7 @@ import { SubscriptionsService } from './subscription.service';
 export class SubscriptionsController {
   constructor(
     private readonly subscriptionsService: SubscriptionsService,
-  ) {}
+  ) { }
 
   // 👤 USER — o‘z PRO holatini ko‘rish
   @Get('me')
@@ -28,17 +28,17 @@ export class SubscriptionsController {
   }
 
   // 👑 ADMIN — userga PRO yoqish
-  @Post('activate/:userId')
+  @Post('activate/:telegramId')
   async activatePro(
-    @Param('userId') userId: number,
-    @Body() body: { plan: 'MONTHLY' | 'QUARTERLY' | 'LIFETIME' },
+    @Param('telegramId') telegramId: string,
+    @Body() body: { plan: 'MONTHLY' },
   ) {
-    return this.subscriptionsService.activate(userId, body.plan);
+    return this.subscriptionsService.activate(telegramId, body.plan);
   }
 
   // 👑 ADMIN — PRO o‘chirish
-  @Post('deactivate/:userId')
-  async deactivatePro(@Param('userId') userId: number) {
-    return this.subscriptionsService.deactivate(userId);
+  @Post('deactivate/:telegramId')
+  async deactivatePro(@Param('telegramId') telegramId: string) {
+    return this.subscriptionsService.deactivateByTelegramId(telegramId);
   }
 }

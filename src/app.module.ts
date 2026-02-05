@@ -1,4 +1,5 @@
 import { Module, Logger, OnModuleInit } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -24,7 +25,7 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
         synchronize: true,
-        
+
       }),
     }),
     AiModule,
@@ -33,10 +34,11 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
     AuthModule,
     TestModule,
     SubscriptionModule,
+    ScheduleModule.forRoot(),
   ],
 })
 export class AppModule implements OnModuleInit {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async onModuleInit() {
     if (this.dataSource.isInitialized) {

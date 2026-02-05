@@ -1,13 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Subscription } from 'src/entities/subscription.entity';
 import { UserEntity } from 'src/entities/user.entity';
-import { Repository, MoreThan, IsNull } from 'typeorm';
+import { Repository, MoreThan, IsNull, LessThan } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
-type PlanType = 'MONTHLY' | 'QUARTERLY' | 'LIFETIME';
+type PlanType = 'MONTHLY';
 
 @Injectable()
 export class SubscriptionsService {
+  private readonly logger = new Logger(SubscriptionsService.name);
+
   constructor(
     @InjectRepository(Subscription)
     private readonly subscriptionRepo: Repository<Subscription>,
@@ -49,8 +52,8 @@ export class SubscriptionsService {
   }
 
   // 👑 Admin — PRO yoqish
-  async activate(userId: number, plan: PlanType) {
-    const user = await this.userRepo.findOneBy({ telegramId: String(userId) });
+  async activate(telegramId: string, plan: PlanType = 'MONTHLY') {
+    const user = await this.userRepo.findOneBy({ telegramId });
     if (!user) throw new NotFoundException('User not found');
 
     // Oldingi PRO ni o‘chiramiz
@@ -60,16 +63,8 @@ export class SubscriptionsService {
     );
 
     const now = new Date();
-
-    const expiresAt =
-      plan === 'MONTHLY'
-        ? new Date(now.setMonth(now.getMonth() + 1))
-        : plan === 'QUARTERLY'
-          ? new Date(now.setMonth(now.getMonth() + 3))
-          : null; // LIFETIME
-
-    const price =
-      plan === 'MONTHLY' ? 10000 : plan === 'QUARTERLY' ? 20000 : 40000;
+    const expiresAt = new Date(now.setMonth(now.getMonth() + 1));
+    const price = 10000;
 
     const subscription = this.subscriptionRepo.create({
       user,
@@ -97,10 +92,13 @@ export class SubscriptionsService {
   }
 
 
-  // 👑 Admin — PRO o‘chirish
-  async deactivate(userId: number) {
+  // 👑 Admin — PRO o‘chirish (TelegramId orqali)
+  async deactivateByTelegramId(telegramId: string) {
+    const user = await this.userRepo.findOneBy({ telegramId });
+    if (!user) throw new NotFoundException('User not found');
+
     const result = await this.subscriptionRepo.update(
-      { user: { id: userId }, isActive: true },
+      { user: { id: user.id }, isActive: true },
       { isActive: false },
     );
 
@@ -109,5 +107,39 @@ export class SubscriptionsService {
     }
 
     return { message: 'PRO deactivated' };
+  }
+
+  async getActiveProUsers() {
+    return this.subscriptionRepo.find({
+      where: [
+        {
+          isActive: true,
+          expiresAt: MoreThan(new Date()),
+        },
+        {
+          isActive: true,
+          expiresAt: IsNull(),
+        },
+      ],
+      relations: ['user'],
+    });
+  }
+
+  // 🕒 Cron job — Har kuni yarim tunda muddati o'tgan PROlarni o'chirish
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleCron() {
+    this.logger.log('Checking for expired subscriptions...');
+
+    const result = await this.subscriptionRepo.update(
+      {
+        isActive: true,
+        expiresAt: LessThan(new Date()),
+      },
+      {
+        isActive: false,
+      },
+    );
+
+    this.logger.log(`Expired subscriptions deactivated: ${result.affected}`);
   }
 }
