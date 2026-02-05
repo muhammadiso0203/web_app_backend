@@ -314,14 +314,22 @@ export class TelegramService {
   @Action('BOT_STATS')
   async onBotStats(@Ctx() ctx: BotContext) {
     if (!ADMINS.includes(String(ctx.from?.id))) return;
-    const [total, today, blocked, active] = await Promise.all([
+    const [total, today, blocked, active, onlyStarted] = await Promise.all([
       this.usersService.totalUsers(),
       this.usersService.todayUsers(),
       this.usersService.blockedUsers(),
       this.usersService.activeUsers(),
+      this.usersService.countOnlyStarted(),
     ]);
 
-    await ctx.reply(`📊 Bot statistikasi\n\n👥 Jami foydalanuvchilar: ${total}\n🆕 Bugun yangi foydalanuvchilar: ${today}\n🔥 Aktiv foydalanuvchilar: ${active}\n🚫 Botni bloklangan foydalanuvchilar: ${blocked}`);
+    await ctx.reply(
+      `📊 Bot statistikasi\n\n` +
+      `👥 Jami foydalanuvchilar: ${total}\n` +
+      `🆕 Bugun yangi foydalanuvchilar: ${today}\n` +
+      `🔥 Aktiv foydalanuvchilar: ${active}\n` +
+      `🤖 Faqat botga start bosganlar: ${onlyStarted}\n` +
+      `🚫 Botni bloklangan foydalanuvchilar: ${blocked}`
+    );
     await ctx.answerCbQuery();
   }
 

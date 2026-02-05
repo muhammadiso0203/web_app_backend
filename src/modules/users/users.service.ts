@@ -104,6 +104,18 @@ export class UsersService {
     await this.repo.update({ telegramId }, { isBlocked: true });
   }
 
+  // 🌐 WEB APP GA KIRDI DEB BELGILASH
+  async markEnteredWebApp(telegramId: string) {
+    await this.repo.update({ telegramId }, { hasEnteredWebApp: true });
+  }
+
+  // 🤖 FAQAT BOTGA START BOSGANLAR (WEB APP GA KIRMAGANLAR)
+  async countOnlyStarted(): Promise<number> {
+    return this.repo.count({
+      where: { hasEnteredWebApp: false },
+    });
+  }
+
   async incrementTestAttempts(telegramId: string) {
     const user = await this.findByTelegramId(telegramId);
     if (user) {

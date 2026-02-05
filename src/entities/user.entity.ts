@@ -32,6 +32,9 @@ export class UserEntity {
   @Column({ default: 0 })
   testAttempts: number;
 
+  @Column({ default: false })
+  hasEnteredWebApp: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 }

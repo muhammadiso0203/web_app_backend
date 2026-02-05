@@ -2,6 +2,7 @@ import { Repository } from 'typeorm';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../users/users.service';
 import {
   validateTelegramWebAppData,
   parseTelegramWebAppData,
@@ -13,7 +14,8 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) {}
+    private readonly usersService: UsersService,
+  ) { }
 
   async validateTelegramAuth(telegramAuthDto: TelegramAuthDto) {
     const { initData } = telegramAuthDto;
@@ -34,6 +36,9 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('No user data found in initData');
     }
+
+    // Mark user as entered web app
+    await this.usersService.markEnteredWebApp(String(user.id));
 
     const payload = {
       sub: user.id,
