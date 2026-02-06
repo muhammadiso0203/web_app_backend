@@ -8,6 +8,7 @@ import {
   Body,
 } from '@nestjs/common';
 import { SubscriptionsService } from './subscription.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('subscriptions')
 export class SubscriptionsController {
@@ -16,6 +17,7 @@ export class SubscriptionsController {
   ) { }
 
   // 👤 USER — o‘z PRO holatini ko‘rish
+  @UseGuards(JwtAuthGuard)
   @Get('me')
   async mySubscription(@Req() req) {
     const user = req.user;
