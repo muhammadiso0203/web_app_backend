@@ -4,7 +4,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany
 } from 'typeorm';
+import { Subscription } from './subscription.entity';
 
 @Entity()
 export class UserEntity {
@@ -20,8 +22,8 @@ export class UserEntity {
   @Column({ nullable: true })
   phone: string;
 
-  @Column({ default: false })
-  subscriptions: boolean
+  @OneToMany(() => Subscription, sub => sub.user)
+  subscriptions: Subscription[];
 
   @Column({ default: false })
   isBlocked: boolean; // 🚫 botni bloklagan

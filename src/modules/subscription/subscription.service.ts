@@ -22,7 +22,9 @@ export class SubscriptionsService {
   // ✅ PRO bormi yo‘qmi (asosiy tekshiruv)
   async isUserPro(telegramId: string): Promise<boolean> {
     const now = new Date();
-    return this.subscriptionRepo.exists({
+
+    // Explicit count check to avoid relation issues with exists on nested where
+    const count = await this.subscriptionRepo.count({
       where: [
         {
           user: { telegramId },
@@ -36,6 +38,8 @@ export class SubscriptionsService {
         },
       ],
     });
+
+    return count > 0;
   }
 
   // 👤 User — o‘z obunasini ko‘rish
@@ -93,16 +97,7 @@ export class SubscriptionsService {
   }
 
   async hasActivePro(telegramId: string): Promise<boolean> {
-    return this.subscriptionRepo.exists({
-      where: [
-        {
-          user: { telegramId },
-          isActive: true,
-          expiresAt: MoreThan(new Date()),
-        },
-        { user: { telegramId }, isActive: true, expiresAt: IsNull() },
-      ],
-    });
+    return this.isUserPro(telegramId);
   }
 
 
