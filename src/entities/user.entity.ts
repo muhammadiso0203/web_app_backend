@@ -47,6 +47,15 @@ export class UserEntity {
   @Column({ default: 5 })
   dailyGoal: number;
 
+  @Column({ default: true })
+  notificationsEnabled: boolean;
+
+  @Column({ default: 'dark' })
+  theme: string;
+
+  @Column({ default: 'uz' })
+  language: string;
+
   @Column({ default: false })
   hasEnteredWebApp: boolean;
 

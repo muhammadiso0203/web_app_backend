@@ -192,4 +192,9 @@ export class UsersService {
     });
     return count + 1;
   }
+
+  async updateSettings(telegramId: string, settings: { notificationsEnabled?: boolean; theme?: string; language?: string }) {
+    await this.repo.update({ telegramId }, settings);
+    return this.findByTelegramId(telegramId);
+  }
 }

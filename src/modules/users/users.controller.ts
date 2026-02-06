@@ -35,6 +35,14 @@ export class UsersController {
     };
   }
 
+  @Patch('settings/:telegramId')
+  updateSettings(
+    @Param('telegramId') telegramId: string,
+    @Body() settings: { notificationsEnabled?: boolean; theme?: string; language?: string }
+  ) {
+    return this.usersService.updateSettings(telegramId, settings);
+  }
+
   @Get()
   findAll() {
     return this.usersService.findAll();
