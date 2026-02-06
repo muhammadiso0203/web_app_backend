@@ -20,9 +20,20 @@ export class UsersController {
     return this.usersService.create(dto);
   }
 
+  @Get('me/:telegramId')
+  async getMe(@Param('telegramId') telegramId: string) {
+    await this.usersService.updateActivity(telegramId);
+    return this.usersService.findByTelegramId(telegramId);
+  }
+
   @Get()
   findAll() {
     return this.usersService.findAll();
+  }
+
+  @Get('top')
+  getTop() {
+    return this.usersService.getTopUsers();
   }
 
   @Get(":id")

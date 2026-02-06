@@ -94,9 +94,53 @@ export class UsersService {
     });
   }
 
-  // 🔥 ACTIVITY YANGILASH
+  // 🔥 ACTIVITY YANGILASH (STREAK LOGIC)
   async updateActivity(telegramId: string) {
-    await this.repo.update({ telegramId }, { lastActiveAt: new Date() });
+    const user = await this.findByTelegramId(telegramId);
+    if (!user) return;
+
+    const now = new Date();
+    const lastActive = user.lastActiveAt ? new Date(user.lastActiveAt) : null;
+
+    if (!lastActive) {
+      await this.repo.update({ telegramId }, { lastActiveAt: now, streak: 1 });
+      return;
+    }
+
+    // Sanalarni solishtirish (vaqtsiz)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const lastDate = new Date(lastActive.getFullYear(), lastActive.getMonth(), lastActive.getDate());
+    const diffDays = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) {
+      // Kecha kirgan bo'lsa streakni oshiramiz va daily countni reset qilamiz
+      await this.repo.update({ telegramId }, {
+        lastActiveAt: now,
+        streak: user.streak + 1,
+        dailyTestsCount: 0
+      });
+    } else if (diffDays > 1) {
+      // Bir kundan ko'p tashlab ketgan bo'lsa 1 ga tushiramiz va reset
+      await this.repo.update({ telegramId }, {
+        lastActiveAt: now,
+        streak: 1,
+        dailyTestsCount: 0
+      });
+    } else {
+      // Bugun allaqachon kirgan bo'lsa (streak kamida 1 bo'lishini ta'minlaymiz)
+      const updateData: any = { lastActiveAt: now };
+      if (!user.streak || user.streak === 0) {
+        updateData.streak = 1;
+      }
+      await this.repo.update({ telegramId }, updateData);
+    }
+  }
+
+  async updateBestScore(telegramId: string, score: number) {
+    const user = await this.findByTelegramId(telegramId);
+    if (user && score > (user.bestScore || 0)) {
+      await this.repo.update({ telegramId }, { bestScore: score });
+    }
   }
 
   // 🚫 BLOK QILINDI DEB BELGILASH
@@ -119,7 +163,25 @@ export class UsersService {
   async incrementTestAttempts(telegramId: string) {
     const user = await this.findByTelegramId(telegramId);
     if (user) {
-      await this.repo.update({ telegramId }, { testAttempts: user.testAttempts + 1 });
+      await this.repo.update({ telegramId }, {
+        testAttempts: user.testAttempts + 1,
+        dailyTestsCount: (user.dailyTestsCount || 0) + 1
+      });
     }
+  }
+
+  async addScore(telegramId: string, points: number) {
+    const user = await this.findByTelegramId(telegramId);
+    if (user) {
+      await this.repo.update({ telegramId }, { score: (user.score || 0) + points });
+    }
+  }
+
+  async getTopUsers(limit: number = 20) {
+    return this.repo.find({
+      order: { score: 'DESC' },
+      take: limit,
+      select: ['id', 'telegramId', 'username', 'score', 'testAttempts'],
+    });
   }
 }

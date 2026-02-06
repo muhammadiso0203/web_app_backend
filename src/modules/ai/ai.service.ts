@@ -157,6 +157,12 @@ Return ONLY valid JSON:
         content.replace(/```json/g, '').replace(/```/g, '').trim(),
       );
 
+      // Award points: 10 points per correct answer
+      if (data.user?.telegramId && result.correct > 0) {
+        await this.usersService.addScore(data.user.telegramId, result.correct * 10);
+        await this.usersService.updateBestScore(data.user.telegramId, result.correct);
+      }
+
       /* 🔔 Telegram notify (optional) */
       const percent = Math.round(
         (result.correct / result.total) * 100,

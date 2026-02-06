@@ -37,8 +37,9 @@ export class AuthService {
       throw new UnauthorizedException('No user data found in initData');
     }
 
-    // Mark user as entered web app
+    // Mark user as entered web app and update activity (streak)
     await this.usersService.markEnteredWebApp(String(user.id));
+    await this.usersService.updateActivity(String(user.id));
 
     const payload = {
       sub: user.id,

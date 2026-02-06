@@ -32,6 +32,21 @@ export class UserEntity {
   @Column({ default: 0 })
   testAttempts: number;
 
+  @Column({ default: 0 })
+  score: number;
+
+  @Column({ default: 0 })
+  streak: number;
+
+  @Column({ default: 0 })
+  bestScore: number;
+
+  @Column({ default: 0 })
+  dailyTestsCount: number;
+
+  @Column({ default: 5 })
+  dailyGoal: number;
+
   @Column({ default: false })
   hasEnteredWebApp: boolean;
 
