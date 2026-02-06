@@ -31,10 +31,10 @@ export class SubscriptionsService {
   }
 
   // 👤 User — o‘z obunasini ko‘rish
-  async getMySubscription(userId: number) {
+  async getMySubscription(telegramId: string) {
     const sub = await this.subscriptionRepo.findOne({
       where: {
-        user: { id: userId },
+        user: { telegramId },
         isActive: true,
       },
       order: { startedAt: 'DESC' },
@@ -58,7 +58,7 @@ export class SubscriptionsService {
 
     // Oldingi PRO ni o‘chiramiz
     await this.subscriptionRepo.update(
-      { user: { id: user.id }, isActive: true },
+      { user: { telegramId }, isActive: true },
       { isActive: false },
     );
 
