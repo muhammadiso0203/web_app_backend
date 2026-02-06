@@ -20,10 +20,10 @@ export class SubscriptionsService {
   ) { }
 
   // ✅ PRO bormi yo‘qmi (asosiy tekshiruv)
-  async isUserPro(userId: number): Promise<boolean> {
+  async isUserPro(telegramId: string): Promise<boolean> {
     return this.subscriptionRepo.exists({
       where: {
-        user: { id: userId },
+        user: { telegramId },
         isActive: true,
         expiresAt: MoreThan(new Date()),
       },
