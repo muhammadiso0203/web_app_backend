@@ -23,7 +23,16 @@ export class UsersController {
   @Get('me/:telegramId')
   async getMe(@Param('telegramId') telegramId: string) {
     await this.usersService.updateActivity(telegramId);
-    return this.usersService.findByTelegramId(telegramId);
+    const user = await this.usersService.findByTelegramId(telegramId);
+    if (!user) return null;
+
+    // Rankni hisoblash (score bo'yicha)
+    const rank = await this.usersService.getUserRank(user.score);
+
+    return {
+      ...user,
+      rank,
+    };
   }
 
   @Get()

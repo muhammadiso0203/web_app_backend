@@ -184,4 +184,12 @@ export class UsersService {
       select: ['id', 'telegramId', 'username', 'score', 'testAttempts'],
     });
   }
+
+  async getUserRank(score: number): Promise<number> {
+    // Sizdan ko'ra ko'proq ball to'plaganlar sonini hisoblaymiz + 1
+    const count = await this.repo.count({
+      where: { score: MoreThan(score || 0) },
+    });
+    return count + 1;
+  }
 }
