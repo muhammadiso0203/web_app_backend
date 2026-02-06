@@ -20,37 +20,28 @@ export class SubscriptionsService {
   ) { }
 
   // ✅ PRO bormi yo‘qmi (asosiy tekshiruv)
+  // ✅ PRO bormi yo‘qmi (asosiy tekshiruv)
   async isUserPro(telegramId: string): Promise<boolean> {
     const now = new Date();
 
-    // Explicit count check to avoid relation issues with exists on nested where
-    const count = await this.subscriptionRepo.count({
-      where: [
-        {
-          user: { telegramId },
-          isActive: true,
-          expiresAt: MoreThan(now),
-        },
-        {
-          user: { telegramId },
-          isActive: true,
-          expiresAt: IsNull(),
-        },
-      ],
-    });
+    const count = await this.subscriptionRepo.createQueryBuilder('sub')
+      .innerJoin('sub.user', 'user')
+      .where('user.telegramId = :telegramId', { telegramId })
+      .andWhere('sub.isActive = :isActive', { isActive: true })
+      .andWhere('(sub.expiresAt > :now OR sub.expiresAt IS NULL)', { now })
+      .getCount();
 
     return count > 0;
   }
 
   // 👤 User — o‘z obunasini ko‘rish
   async getMySubscription(telegramId: string) {
-    const sub = await this.subscriptionRepo.findOne({
-      where: {
-        user: { telegramId },
-        isActive: true,
-      },
-      order: { startedAt: 'DESC' },
-    });
+    const sub = await this.subscriptionRepo.createQueryBuilder('sub')
+      .innerJoin('sub.user', 'user')
+      .where('user.telegramId = :telegramId', { telegramId })
+      .andWhere('sub.isActive = :isActive', { isActive: true })
+      .orderBy('sub.startedAt', 'DESC')
+      .getOne();
 
     if (!sub) {
       return { isPro: false };
@@ -69,9 +60,11 @@ export class SubscriptionsService {
     if (!user) throw new NotFoundException('User not found');
 
     // Oldingi PRO ni o‘chiramiz
-    const activeSubs = await this.subscriptionRepo.find({
-      where: { user: { telegramId }, isActive: true },
-    });
+    const activeSubs = await this.subscriptionRepo.createQueryBuilder('sub')
+      .innerJoin('sub.user', 'user')
+      .where('user.telegramId = :telegramId', { telegramId })
+      .andWhere('sub.isActive = :isActive', { isActive: true })
+      .getMany();
 
     if (activeSubs.length > 0) {
       await this.subscriptionRepo.update(
