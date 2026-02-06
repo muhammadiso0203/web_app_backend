@@ -21,12 +21,20 @@ export class SubscriptionsService {
 
   // ✅ PRO bormi yo‘qmi (asosiy tekshiruv)
   async isUserPro(telegramId: string): Promise<boolean> {
+    const now = new Date();
     return this.subscriptionRepo.exists({
-      where: {
-        user: { telegramId },
-        isActive: true,
-        expiresAt: MoreThan(new Date()),
-      },
+      where: [
+        {
+          user: { telegramId },
+          isActive: true,
+          expiresAt: MoreThan(now),
+        },
+        {
+          user: { telegramId },
+          isActive: true,
+          expiresAt: IsNull(),
+        },
+      ],
     });
   }
 
@@ -57,10 +65,16 @@ export class SubscriptionsService {
     if (!user) throw new NotFoundException('User not found');
 
     // Oldingi PRO ni o‘chiramiz
-    await this.subscriptionRepo.update(
-      { user: { telegramId }, isActive: true },
-      { isActive: false },
-    );
+    const activeSubs = await this.subscriptionRepo.find({
+      where: { user: { telegramId }, isActive: true },
+    });
+
+    if (activeSubs.length > 0) {
+      await this.subscriptionRepo.update(
+        activeSubs.map(s => s.id),
+        { isActive: false }
+      );
+    }
 
     const now = new Date();
     const expiresAt = new Date(now.setMonth(now.getMonth() + 1));
@@ -101,6 +115,17 @@ export class SubscriptionsService {
       { user: { id: user.id }, isActive: true },
       { isActive: false },
     );
+
+    // Agar yuqoridagi update ishlamasa (TypeORM issue with relations in update), alternative:
+    if (result.affected === 0) {
+      const activeSub = await this.subscriptionRepo.findOne({
+        where: { user: { telegramId }, isActive: true }
+      });
+      if (activeSub) {
+        await this.subscriptionRepo.update(activeSub.id, { isActive: false });
+        return { message: 'PRO deactivated' };
+      }
+    }
 
     if (result.affected === 0) {
       throw new NotFoundException('Active subscription not found');

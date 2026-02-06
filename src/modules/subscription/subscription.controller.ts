@@ -21,8 +21,7 @@ export class SubscriptionsController {
   @Get('me')
   async mySubscription(@Req() req) {
     const user = req.user;
-
-    const isPro = await this.subscriptionsService.isUserPro(user.id);
+    const isPro = await this.subscriptionsService.isUserPro(String(user.id));
 
     return {
       isPro,
