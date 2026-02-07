@@ -220,7 +220,7 @@ Return ONLY valid JSON:
       const prompt = `
 You are an IELTS vocabulary test generator.
 
-Generate EXACTLY 10 UNIQUE English words.
+Generate EXACTLY 30 UNIQUE English words.
 For each word:
 - Provide 1 correct Uzbek translation
 - Provide 2 incorrect but plausible Uzbek options
