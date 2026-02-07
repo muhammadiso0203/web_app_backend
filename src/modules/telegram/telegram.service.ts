@@ -9,9 +9,9 @@ const REQUIRED_CHANNEL = '-1003874169831';
 
 interface BotSession {
   step?:
-    | 'WAIT_USER_ID_FOR_PRO'
-    | 'WAIT_USER_ID_FOR_REMOVE_PRO'
-    | 'WAIT_REASON_FOR_REMOVE_PRO';
+  | 'WAIT_USER_ID_FOR_PRO'
+  | 'WAIT_USER_ID_FOR_REMOVE_PRO'
+  | 'WAIT_REASON_FOR_REMOVE_PRO';
   userId?: number;
   removeReason?: string;
 }
@@ -59,7 +59,7 @@ export class TelegramService {
   constructor(
     private readonly usersService: UsersService,
     private readonly subscriptionsService: SubscriptionsService,
-  ) {}
+  ) { }
 
   private async isSubscribed(ctx: Context): Promise<boolean> {
     if (!ctx.from) return false;
@@ -158,8 +158,8 @@ export class TelegramService {
 
       await ctx.reply(
         '👑 PRO tariflar:\n\n' +
-          '1 oy – 10 000 so‘m\n' +
-          '💳 To‘lov qilish uchun admin bilan bog‘laning.',
+        '1 oy – 10 000 so‘m\n' +
+        '💳 To‘lov qilish uchun admin bilan bog‘laning.',
       );
       return;
     }
@@ -346,11 +346,11 @@ export class TelegramService {
 
     await ctx.reply(
       `📊 Bot statistikasi\n\n` +
-        `👥 Jami foydalanuvchilar: ${total}\n` +
-        `🆕 Bugun yangi foydalanuvchilar: ${today}\n` +
-        `🔥 Aktiv foydalanuvchilar: ${active}\n` +
-        `🤖 Faqat botga start bosganlar: ${onlyStarted}\n` +
-        `🚫 Botni bloklangan foydalanuvchilar: ${blocked}`,
+      `👥 Jami foydalanuvchilar: ${total}\n` +
+      `🆕 Bugun yangi foydalanuvchilar: ${today}\n` +
+      `🔥 Aktiv foydalanuvchilar: ${active}\n` +
+      `🤖 Faqat botga start bosganlar: ${onlyStarted}\n` +
+      `🚫 Botni bloklangan foydalanuvchilar: ${blocked}`,
     );
     await ctx.answerCbQuery();
   }
@@ -395,11 +395,36 @@ export class TelegramService {
 
   @Action('CHECK_SUB')
   async onCheckSub(@Ctx() ctx: BotContext) {
+    if (!ctx.from) return;
+
     if (!(await this.isSubscribed(ctx))) {
       await ctx.answerCbQuery('❌ Obuna yo‘q', { show_alert: true });
       return;
     }
+
     await ctx.answerCbQuery('✅ Tasdiqlandi');
-    await ctx.reply('🎉 Xush kelibsiz!', USER_INLINE_KEYBOARD);
+
+    const telegramId = String(ctx.from.id);
+    const user = await this.usersService.findByTelegramId(telegramId);
+
+    if (user) {
+      await ctx.reply('🎉 Xush kelibsiz!', USER_INLINE_KEYBOARD);
+
+      // PRO olish — reply (Faqat foydalanuvchilar uchun)
+      if (!ADMINS.includes(telegramId)) {
+        await ctx.reply('👇 Qo‘shimcha imkoniyatlar:', USER_REPLY_KEYBOARD);
+      }
+      return;
+    }
+
+    // Agar user yo‘q bo‘lsa → Contact so‘rash
+    await ctx.reply(
+      '📱 Telefon raqamingizni yuboring 👇',
+      Markup.keyboard([
+        Markup.button.contactRequest('📱 Telefon raqamni yuborish'),
+      ])
+        .resize()
+        .oneTime(),
+    );
   }
 }
