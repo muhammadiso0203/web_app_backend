@@ -1,15 +1,14 @@
-import * as crypto from 'crypto';
-(global as any).crypto = crypto;
-
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   try {
-    const PORT = process.env.PORT || 3000;
     const app = await NestFactory.create(AppModule);
+    const configService = app.get(ConfigService);
+    const PORT = configService.get('PORT') || 3000;
 
     app.enableCors({
       origin: '*',

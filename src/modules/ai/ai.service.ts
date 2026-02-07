@@ -17,7 +17,7 @@ export class AiService {
     private readonly telegramNotify: TelegramNotifyService,
     private readonly usersService: UsersService,
     private readonly subscriptionsService: SubscriptionsService,
-  ) { }
+  ) {}
 
   private readonly openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -76,7 +76,10 @@ Return valid JSON in this exact format:
         const content = response.choices[0].message.content || '[]';
 
         return JSON.parse(
-          content.replace(/```json/g, '').replace(/```/g, '').trim(),
+          content
+            .replace(/```json/g, '')
+            .replace(/```/g, '')
+            .trim(),
         );
       };
 
@@ -97,9 +100,7 @@ Return valid JSON in this exact format:
       if (error instanceof ForbiddenException) throw error;
 
       this.logger.error('AI generateTest error', error);
-      throw new InternalServerErrorException(
-        'AI test generation failed',
-      );
+      throw new InternalServerErrorException('AI test generation failed');
     }
   }
 
@@ -154,19 +155,26 @@ Return ONLY valid JSON:
       }
 
       const result = JSON.parse(
-        content.replace(/```json/g, '').replace(/```/g, '').trim(),
+        content
+          .replace(/```json/g, '')
+          .replace(/```/g, '')
+          .trim(),
       );
 
       // Award points: 10 points per correct answer
       if (data.user?.telegramId && result.correct > 0) {
-        await this.usersService.addScore(data.user.telegramId, result.correct * 10);
-        await this.usersService.updateBestScore(data.user.telegramId, result.correct);
+        await this.usersService.addScore(
+          data.user.telegramId,
+          result.correct * 10,
+        );
+        await this.usersService.updateBestScore(
+          data.user.telegramId,
+          result.correct,
+        );
       }
 
       /* 🔔 Telegram notify (optional) */
-      const percent = Math.round(
-        (result.correct / result.total) * 100,
-      );
+      const percent = Math.round((result.correct / result.total) * 100);
 
       const message = `
 📊 *IELTS Test Result*
@@ -188,12 +196,9 @@ Return ONLY valid JSON:
       return result;
     } catch (error) {
       this.logger.error('AI checkResult error', error);
-      throw new InternalServerErrorException(
-        'AI result checking failed',
-      );
+      throw new InternalServerErrorException('AI result checking failed');
     }
   }
-
 
   async generateTranslateTest(telegramId: string) {
     // 🛡 User tekshiruvi
@@ -287,8 +292,6 @@ Return ONLY valid JSON in this exact format (array of 10 items):
     }
   }
 
-
-
   /* =========================
      3️⃣ AI FEEDBACK (PRO ONLY)
   ========================= */
@@ -305,14 +308,11 @@ Return ONLY valid JSON in this exact format (array of 10 items):
     const { telegramId, questions, userAnswers } = params;
 
     // 🔒 PRO check
-    const isPro = await this.subscriptionsService.hasActivePro(
-      telegramId,
-    );
+    const isPro = await this.subscriptionsService.hasActivePro(telegramId);
 
     if (!isPro) {
       return {
-        feedback:
-          '🔒 To‘liq AI feedback faqat PRO foydalanuvchilar uchun.',
+        feedback: '🔒 To‘liq AI feedback faqat PRO foydalanuvchilar uchun.',
       };
     }
 
@@ -324,30 +324,28 @@ Return ONLY valid JSON in this exact format (array of 10 items):
             question: q.question,
             correctAnswer: q.options[q.correct],
             userAnswer:
-              userAnswers[i] === -1
-                ? 'No answer'
-                : q.options[userAnswers[i]],
+              userAnswers[i] === -1 ? 'No answer' : q.options[userAnswers[i]],
           };
         }
         return null;
       })
       .filter(Boolean) as {
-        question: string;
-        correctAnswer: string;
-        userAnswer: string;
-      }[];
+      question: string;
+      correctAnswer: string;
+      userAnswer: string;
+    }[];
 
     const mistakesText =
       mistakes.length > 0
         ? mistakes
-          .slice(0, 5)
-          .map(
-            (m, idx) =>
-              `${idx + 1}. Question: "${m.question}"
+            .slice(0, 5)
+            .map(
+              (m, idx) =>
+                `${idx + 1}. Question: "${m.question}"
 User answer: ${m.userAnswer}
 Correct answer: ${m.correctAnswer}`,
-          )
-          .join('\n\n')
+            )
+            .join('\n\n')
         : 'The user answered all questions correctly.';
 
     const prompt = `
@@ -365,18 +363,16 @@ ${mistakesText}
 `;
 
     try {
-      const response =
-        await this.openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.4,
-          max_tokens: 300,
-        });
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.4,
+        max_tokens: 300,
+      });
 
       return {
         feedback:
-          response.choices[0].message.content ??
-          'No feedback generated.',
+          response.choices[0].message.content ?? 'No feedback generated.',
       };
     } catch (error) {
       this.logger.error('AI feedback error', error);

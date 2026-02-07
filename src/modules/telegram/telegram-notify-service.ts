@@ -1,6 +1,6 @@
 // telegram-notify.service.ts
-import axios from "axios";
-import { Injectable, Logger } from "@nestjs/common";
+import axios from 'axios';
+import { Injectable, Logger } from '@nestjs/common';
 
 @Injectable()
 export class TelegramNotifyService {
@@ -10,7 +10,7 @@ export class TelegramNotifyService {
 
   async sendResult(message: string) {
     if (!this.token || !this.channelId) {
-      this.logger.error("Telegram token yoki channel ID yo‘q");
+      this.logger.error('Telegram token yoki channel ID yo‘q');
       return;
     }
 
@@ -22,14 +22,14 @@ export class TelegramNotifyService {
         {
           chat_id: this.channelId,
           text: message,
-          parse_mode: "Markdown",
+          parse_mode: 'Markdown',
         },
         {
           timeout: 15000,
         },
       );
     } catch (err: any) {
-      this.logger.error("Telegramga yuborilmadi", err.code || err.message);
+      this.logger.error('Telegramga yuborilmadi', err.code || err.message);
     }
   }
 }

@@ -11,4 +11,4 @@ import { UserEntity } from 'src/entities/user.entity';
   providers: [SubscriptionsService],
   exports: [SubscriptionsService],
 })
-export class SubscriptionModule { }
+export class SubscriptionModule {}

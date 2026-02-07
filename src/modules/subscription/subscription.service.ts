@@ -17,14 +17,15 @@ export class SubscriptionsService {
 
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
-  ) { }
+  ) {}
 
   // ✅ PRO bormi yo‘qmi (asosiy tekshiruv)
   // ✅ PRO bormi yo‘qmi (asosiy tekshiruv)
   async isUserPro(telegramId: string): Promise<boolean> {
     const now = new Date();
 
-    const count = await this.subscriptionRepo.createQueryBuilder('sub')
+    const count = await this.subscriptionRepo
+      .createQueryBuilder('sub')
       .innerJoin('sub.user', 'user')
       .where('user.telegramId = :telegramId', { telegramId })
       .andWhere('sub.isActive = :isActive', { isActive: true })
@@ -36,7 +37,8 @@ export class SubscriptionsService {
 
   // 👤 User — o‘z obunasini ko‘rish
   async getMySubscription(telegramId: string) {
-    const sub = await this.subscriptionRepo.createQueryBuilder('sub')
+    const sub = await this.subscriptionRepo
+      .createQueryBuilder('sub')
       .innerJoin('sub.user', 'user')
       .where('user.telegramId = :telegramId', { telegramId })
       .andWhere('sub.isActive = :isActive', { isActive: true })
@@ -60,7 +62,8 @@ export class SubscriptionsService {
     if (!user) throw new NotFoundException('User not found');
 
     // Oldingi PRO ni o‘chiramiz
-    const activeSubs = await this.subscriptionRepo.createQueryBuilder('sub')
+    const activeSubs = await this.subscriptionRepo
+      .createQueryBuilder('sub')
       .innerJoin('sub.user', 'user')
       .where('user.telegramId = :telegramId', { telegramId })
       .andWhere('sub.isActive = :isActive', { isActive: true })
@@ -68,8 +71,8 @@ export class SubscriptionsService {
 
     if (activeSubs.length > 0) {
       await this.subscriptionRepo.update(
-        activeSubs.map(s => s.id),
-        { isActive: false }
+        activeSubs.map((s) => s.id),
+        { isActive: false },
       );
     }
 
@@ -93,7 +96,6 @@ export class SubscriptionsService {
     return this.isUserPro(telegramId);
   }
 
-
   // 👑 Admin — PRO o‘chirish (TelegramId orqali)
   async deactivateByTelegramId(telegramId: string) {
     const user = await this.userRepo.findOneBy({ telegramId });
@@ -107,7 +109,7 @@ export class SubscriptionsService {
     // Agar yuqoridagi update ishlamasa (TypeORM issue with relations in update), alternative:
     if (result.affected === 0) {
       const activeSub = await this.subscriptionRepo.findOne({
-        where: { user: { telegramId }, isActive: true }
+        where: { user: { telegramId }, isActive: true },
       });
       if (activeSub) {
         await this.subscriptionRepo.update(activeSub.id, { isActive: false });

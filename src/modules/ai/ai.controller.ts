@@ -3,7 +3,7 @@ import { AiService } from './ai.service';
 
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: AiService) { }
+  constructor(private readonly aiService: AiService) {}
 
   @Post('generate-test')
   async generateTest(@Body() body: { telegramId: string }) {
@@ -14,7 +14,6 @@ export class AiController {
   async generateTranslateTest(@Body() body: { telegramId: string }) {
     return this.aiService.generateTranslateTest(body.telegramId);
   }
-
 
   @Post('check-result')
   async checkResult(

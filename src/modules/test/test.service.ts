@@ -1,12 +1,10 @@
 // tests.service.ts
-import { Injectable } from "@nestjs/common";
-import { TelegramNotifyService } from "../telegram/telegram-notify-service";
+import { Injectable } from '@nestjs/common';
+import { TelegramNotifyService } from '../telegram/telegram-notify-service';
 
 @Injectable()
 export class TestsService {
-  constructor(
-    private readonly telegramService: TelegramNotifyService,
-  ) {}
+  constructor(private readonly telegramService: TelegramNotifyService) {}
 
   async submitTest(data: any) {
     const { tests, answers, user } = data;
@@ -27,7 +25,7 @@ export class TestsService {
     const message = `
 🧪 *Test natijasi*
 
-📛 *Ism:* ${user?.firstName || "-"}
+📛 *Ism:* ${user?.firstName || '-'}
 
 📊 *Natijalar:*
 ✅ To‘g‘ri: *${correct}*

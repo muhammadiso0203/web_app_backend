@@ -10,7 +10,7 @@ export class UsersService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly repo: Repository<UserEntity>,
-  ) { }
+  ) {}
 
   async create(dto: createUserDto) {
     const exist = await this.repo.findOne({
@@ -109,23 +109,35 @@ export class UsersService {
 
     // Sanalarni solishtirish (vaqtsiz)
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const lastDate = new Date(lastActive.getFullYear(), lastActive.getMonth(), lastActive.getDate());
-    const diffDays = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+    const lastDate = new Date(
+      lastActive.getFullYear(),
+      lastActive.getMonth(),
+      lastActive.getDate(),
+    );
+    const diffDays = Math.floor(
+      (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
 
     if (diffDays === 1) {
       // Kecha kirgan bo'lsa streakni oshiramiz va daily countni reset qilamiz
-      await this.repo.update({ telegramId }, {
-        lastActiveAt: now,
-        streak: user.streak + 1,
-        dailyTestsCount: 0
-      });
+      await this.repo.update(
+        { telegramId },
+        {
+          lastActiveAt: now,
+          streak: user.streak + 1,
+          dailyTestsCount: 0,
+        },
+      );
     } else if (diffDays > 1) {
       // Bir kundan ko'p tashlab ketgan bo'lsa 1 ga tushiramiz va reset
-      await this.repo.update({ telegramId }, {
-        lastActiveAt: now,
-        streak: 1,
-        dailyTestsCount: 0
-      });
+      await this.repo.update(
+        { telegramId },
+        {
+          lastActiveAt: now,
+          streak: 1,
+          dailyTestsCount: 0,
+        },
+      );
     } else {
       // Bugun allaqachon kirgan bo'lsa (streak kamida 1 bo'lishini ta'minlaymiz)
       const updateData: any = { lastActiveAt: now };
@@ -163,17 +175,23 @@ export class UsersService {
   async incrementTestAttempts(telegramId: string) {
     const user = await this.findByTelegramId(telegramId);
     if (user) {
-      await this.repo.update({ telegramId }, {
-        testAttempts: user.testAttempts + 1,
-        dailyTestsCount: (user.dailyTestsCount || 0) + 1
-      });
+      await this.repo.update(
+        { telegramId },
+        {
+          testAttempts: user.testAttempts + 1,
+          dailyTestsCount: (user.dailyTestsCount || 0) + 1,
+        },
+      );
     }
   }
 
   async addScore(telegramId: string, points: number) {
     const user = await this.findByTelegramId(telegramId);
     if (user) {
-      await this.repo.update({ telegramId }, { score: (user.score || 0) + points });
+      await this.repo.update(
+        { telegramId },
+        { score: (user.score || 0) + points },
+      );
     }
   }
 
@@ -193,7 +211,14 @@ export class UsersService {
     return count + 1;
   }
 
-  async updateSettings(telegramId: string, settings: { notificationsEnabled?: boolean; theme?: string; language?: string }) {
+  async updateSettings(
+    telegramId: string,
+    settings: {
+      notificationsEnabled?: boolean;
+      theme?: string;
+      language?: string;
+    },
+  ) {
     await this.repo.update({ telegramId }, settings);
     return this.findByTelegramId(telegramId);
   }

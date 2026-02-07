@@ -4,7 +4,7 @@ import { TelegramAuthDto } from './dto/telegram-auth.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('telegram')
   async loginTelegram(@Body() telegramAuthDto: TelegramAuthDto) {

@@ -16,7 +16,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
-  ) { }
+  ) {}
 
   async validateTelegramAuth(telegramAuthDto: TelegramAuthDto) {
     const { initData } = telegramAuthDto;
@@ -41,13 +41,15 @@ export class AuthService {
     const telegramId = String(tgUser.id);
 
     // Get or Create user in DB
-    let user = await this.usersService.findByTelegramId(telegramId);
+    const user = await this.usersService.findByTelegramId(telegramId);
     if (!user) {
       // Create user if not exists (Telegram Web App users might not have phone yet, but let's try to track)
-      // Note: In your current flow, users register via contact in bot. 
+      // Note: In your current flow, users register via contact in bot.
       // If they haven't, findByTelegramId returns null.
       // For now, let's assume they exist or handle the missing case.
-      this.logger.warn(`User ${telegramId} not found in database during web app auth`);
+      this.logger.warn(
+        `User ${telegramId} not found in database during web app auth`,
+      );
     }
 
     // Mark user as entered web app and update activity (streak)

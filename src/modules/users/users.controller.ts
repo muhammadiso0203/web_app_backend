@@ -6,14 +6,14 @@ import {
   Patch,
   Param,
   Delete,
-} from "@nestjs/common";
-import { UsersService } from "./users.service";
-import { createUserDto } from "./dto/createUserDto";
-import { updateUserDto } from "./dto/updateUserDto";
+} from '@nestjs/common';
+import { UsersService } from './users.service';
+import { createUserDto } from './dto/createUserDto';
+import { updateUserDto } from './dto/updateUserDto';
 
-@Controller("users")
+@Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Post()
   create(@Body() dto: createUserDto) {
@@ -38,7 +38,12 @@ export class UsersController {
   @Patch('settings/:telegramId')
   updateSettings(
     @Param('telegramId') telegramId: string,
-    @Body() settings: { notificationsEnabled?: boolean; theme?: string; language?: string }
+    @Body()
+    settings: {
+      notificationsEnabled?: boolean;
+      theme?: string;
+      language?: string;
+    },
   ) {
     return this.usersService.updateSettings(telegramId, settings);
   }
@@ -53,18 +58,18 @@ export class UsersController {
     return this.usersService.getTopUsers();
   }
 
-  @Get(":id")
-  findOne(@Param("id") id: string) {
+  @Get(':id')
+  findOne(@Param('id') id: string) {
     return this.usersService.findOne(+id);
   }
 
-  @Patch(":id")
-  update(@Param("id") id: string, @Body() dto: updateUserDto) {
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: updateUserDto) {
     return this.usersService.update(+id, dto);
   }
 
-  @Delete(":id")
-  remove(@Param("id") id: string) {
+  @Delete(':id')
+  remove(@Param('id') id: string) {
     return this.usersService.remove(+id);
   }
 }

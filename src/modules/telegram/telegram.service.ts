@@ -8,7 +8,10 @@ const ADMINS = ['6699946651'];
 const REQUIRED_CHANNEL = '-1003874169831';
 
 interface BotSession {
-  step?: 'WAIT_USER_ID_FOR_PRO' | 'WAIT_USER_ID_FOR_REMOVE_PRO' | 'WAIT_REASON_FOR_REMOVE_PRO';
+  step?:
+    | 'WAIT_USER_ID_FOR_PRO'
+    | 'WAIT_USER_ID_FOR_REMOVE_PRO'
+    | 'WAIT_REASON_FOR_REMOVE_PRO';
   userId?: number;
   removeReason?: string;
 }
@@ -18,7 +21,8 @@ interface BotContext extends Context {
   match: RegExpExecArray;
 }
 
-const WEB_APP_URL = process.env.WEB_APP_URL ?? 'https://web-app-sand-six-48.vercel.app/';
+const WEB_APP_URL =
+  process.env.WEB_APP_URL ?? 'https://web-app-sand-six-48.vercel.app/';
 
 const ADMIN_INLINE_KEYBOARD = Markup.inlineKeyboard([
   [Markup.button.callback('📊 Statistika', 'BOT_STATS')],
@@ -32,14 +36,17 @@ const USER_INLINE_KEYBOARD = Markup.inlineKeyboard([
   [Markup.button.webApp('🌐 Web App ni ochish', WEB_APP_URL)],
 ]);
 
-const USER_REPLY_KEYBOARD = Markup.keyboard([
-  ['👑 PRO obuna olish'],
-])
+const USER_REPLY_KEYBOARD = Markup.keyboard([['👑 PRO obuna olish']])
   .resize()
   .oneTime(false);
 
 const SUBSCRIBE_KEYBOARD = Markup.inlineKeyboard([
-  [Markup.button.url('📢 Kanalga obuna bo‘lish', 'https://t.me/+rEFFf1YzeqM2OTcy')],
+  [
+    Markup.button.url(
+      '📢 Kanalga obuna bo‘lish',
+      'https://t.me/+rEFFf1YzeqM2OTcy',
+    ),
+  ],
   [Markup.button.callback('✅ Tekshirish', 'CHECK_SUB')],
 ]);
 
@@ -52,12 +59,15 @@ export class TelegramService {
   constructor(
     private readonly usersService: UsersService,
     private readonly subscriptionsService: SubscriptionsService,
-  ) { }
+  ) {}
 
   private async isSubscribed(ctx: Context): Promise<boolean> {
     if (!ctx.from) return false;
     try {
-      const member = await ctx.telegram.getChatMember(REQUIRED_CHANNEL, ctx.from.id);
+      const member = await ctx.telegram.getChatMember(
+        REQUIRED_CHANNEL,
+        ctx.from.id,
+      );
       return ['member', 'administrator', 'creator'].includes(member.status);
     } catch {
       return false;
@@ -91,10 +101,7 @@ export class TelegramService {
 
       // PRO olish — reply (Faqat foydalanuvchilar uchun)
       if (!ADMINS.includes(telegramId)) {
-        await ctx.reply(
-          '👇 Qo‘shimcha imkoniyatlar:',
-          USER_REPLY_KEYBOARD,
-        );
+        await ctx.reply('👇 Qo‘shimcha imkoniyatlar:', USER_REPLY_KEYBOARD);
       }
 
       return;
@@ -127,7 +134,9 @@ export class TelegramService {
     if (!ctx.session) ctx.session = {};
     ctx.session.step = 'WAIT_USER_ID_FOR_REMOVE_PRO';
     await ctx.answerCbQuery();
-    await ctx.reply('👤 PRO olib tashlanadigan foydalanuvchi ID sini yuboring:');
+    await ctx.reply(
+      '👤 PRO olib tashlanadigan foydalanuvchi ID sini yuboring:',
+    );
     return;
   }
 
@@ -139,7 +148,8 @@ export class TelegramService {
 
     // ===== USER PRO BUY (reply keyboard) =====
     if (text === '👑 PRO obuna olish') {
-      const alreadyPro = await this.subscriptionsService.hasActivePro(telegramId);
+      const alreadyPro =
+        await this.subscriptionsService.hasActivePro(telegramId);
 
       if (alreadyPro) {
         await ctx.reply('👑 Siz allaqachon PRO obunasiga egasiz');
@@ -148,8 +158,8 @@ export class TelegramService {
 
       await ctx.reply(
         '👑 PRO tariflar:\n\n' +
-        '1 oy – 10 000 so‘m\n' +
-        '💳 To‘lov qilish uchun admin bilan bog‘laning.',
+          '1 oy – 10 000 so‘m\n' +
+          '💳 To‘lov qilish uchun admin bilan bog‘laning.',
       );
       return;
     }
@@ -166,7 +176,8 @@ export class TelegramService {
     if (this.waitingForBroadcast.has(telegramId)) {
       this.waitingForBroadcast.delete(telegramId);
       const users = await this.usersService.findAll();
-      let success = 0, failed = 0;
+      let success = 0,
+        failed = 0;
       for (const user of users) {
         try {
           await ctx.telegram.sendMessage(user.telegramId, text);
@@ -175,7 +186,10 @@ export class TelegramService {
           failed++;
         }
       }
-      await ctx.reply(`✅ Xabar yuborildi\n\n📨 ${success} ta\n❌ ${failed} ta`, ADMIN_INLINE_KEYBOARD);
+      await ctx.reply(
+        `✅ Xabar yuborildi\n\n📨 ${success} ta\n❌ ${failed} ta`,
+        ADMIN_INLINE_KEYBOARD,
+      );
       return;
     }
 
@@ -187,7 +201,8 @@ export class TelegramService {
       ctx.session.userId = undefined;
 
       try {
-        const alreadyPro = await this.subscriptionsService.hasActivePro(targetTelegramId);
+        const alreadyPro =
+          await this.subscriptionsService.hasActivePro(targetTelegramId);
 
         if (alreadyPro) {
           await ctx.reply(`Bu foydalanuvchi allaqachon PRO obunaga ega 👑`);
@@ -195,7 +210,9 @@ export class TelegramService {
         }
 
         await this.subscriptionsService.activate(targetTelegramId, 'MONTHLY');
-        await ctx.reply(`✅ Foydalanuvchi ${targetTelegramId} ga 1 oylik PRO obunasi berildi! 👑`);
+        await ctx.reply(
+          `✅ Foydalanuvchi ${targetTelegramId} ga 1 oylik PRO obunasi berildi! 👑`,
+        );
       } catch (error) {
         this.logger.error('Error activating PRO:', error);
         await ctx.reply(`❌ PRO berishda xatolik: ${error.message}`);
@@ -217,7 +234,9 @@ export class TelegramService {
       ctx.session.userId = Number(user.id); // Internal ID (though telegramId would work too if we update session)
       (ctx.session as any).targetTelegramId = targetTelegramId;
       ctx.session.step = 'WAIT_REASON_FOR_REMOVE_PRO';
-      await ctx.reply(`👤 Foydalanuvchi: ${targetTelegramId}\n❓ PRO olib tashlash sababini kiriting:`);
+      await ctx.reply(
+        `👤 Foydalanuvchi: ${targetTelegramId}\n❓ PRO olib tashlash sababini kiriting:`,
+      );
       return;
     }
 
@@ -234,21 +253,27 @@ export class TelegramService {
 
       try {
         const user = await this.usersService.findByTelegramId(targetTelegramId);
-        await this.subscriptionsService.deactivateByTelegramId(targetTelegramId);
+        await this.subscriptionsService.deactivateByTelegramId(
+          targetTelegramId,
+        );
 
         // Notify user
         try {
           if (user && user.telegramId) {
             await ctx.telegram.sendMessage(
               user.telegramId,
-              `🚫 Sizdan PRO obunasi olib tashlandi.\n\n⚠️ Sababi: ${reason}`
+              `🚫 Sizdan PRO obunasi olib tashlandi.\n\n⚠️ Sababi: ${reason}`,
             );
           }
         } catch (err) {
-          this.logger.error(`Could not notify user ${targetTelegramId}: ${err.message}`);
+          this.logger.error(
+            `Could not notify user ${targetTelegramId}: ${err.message}`,
+          );
         }
 
-        await ctx.reply(`✅ Foydalanuvchi ${targetTelegramId} dan PRO olib tashlandi va xabar yuborildi.`);
+        await ctx.reply(
+          `✅ Foydalanuvchi ${targetTelegramId} dan PRO olib tashlandi va xabar yuborildi.`,
+        );
       } catch (error) {
         this.logger.error('Error deactivating PRO:', error);
         await ctx.reply(`❌ PRO olib tashlashda xatolik: ${error.message}`);
@@ -296,10 +321,7 @@ export class TelegramService {
     );
 
     if (!ADMINS.includes(telegramId)) {
-      await ctx.reply(
-        '👇 Qo‘shimcha imkoniyatlar:',
-        USER_REPLY_KEYBOARD,
-      );
+      await ctx.reply('👇 Qo‘shimcha imkoniyatlar:', USER_REPLY_KEYBOARD);
     }
   }
 
@@ -324,11 +346,11 @@ export class TelegramService {
 
     await ctx.reply(
       `📊 Bot statistikasi\n\n` +
-      `👥 Jami foydalanuvchilar: ${total}\n` +
-      `🆕 Bugun yangi foydalanuvchilar: ${today}\n` +
-      `🔥 Aktiv foydalanuvchilar: ${active}\n` +
-      `🤖 Faqat botga start bosganlar: ${onlyStarted}\n` +
-      `🚫 Botni bloklangan foydalanuvchilar: ${blocked}`
+        `👥 Jami foydalanuvchilar: ${total}\n` +
+        `🆕 Bugun yangi foydalanuvchilar: ${today}\n` +
+        `🔥 Aktiv foydalanuvchilar: ${active}\n` +
+        `🤖 Faqat botga start bosganlar: ${onlyStarted}\n` +
+        `🚫 Botni bloklangan foydalanuvchilar: ${blocked}`,
     );
     await ctx.answerCbQuery();
   }

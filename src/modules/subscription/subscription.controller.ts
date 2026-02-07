@@ -12,9 +12,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('subscriptions')
 export class SubscriptionsController {
-  constructor(
-    private readonly subscriptionsService: SubscriptionsService,
-  ) { }
+  constructor(private readonly subscriptionsService: SubscriptionsService) {}
 
   // 👤 USER — o‘z PRO holatini ko‘rish
   @UseGuards(JwtAuthGuard)

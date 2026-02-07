@@ -12,7 +12,7 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env', }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -25,7 +25,6 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
         synchronize: true,
-
       }),
     }),
     AiModule,
@@ -38,7 +37,7 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
   ],
 })
 export class AppModule implements OnModuleInit {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
 
   async onModuleInit() {
     if (this.dataSource.isInitialized) {

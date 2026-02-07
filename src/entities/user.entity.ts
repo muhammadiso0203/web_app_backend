@@ -4,7 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany
+  OneToMany,
 } from 'typeorm';
 import { Subscription } from './subscription.entity';
 
@@ -22,7 +22,7 @@ export class UserEntity {
   @Column({ nullable: true })
   phone: string;
 
-  @OneToMany(() => Subscription, sub => sub.user)
+  @OneToMany(() => Subscription, (sub) => sub.user)
   subscriptions: Subscription[];
 
   @Column({ default: false })
