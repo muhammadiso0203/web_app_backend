@@ -22,7 +22,7 @@ interface BotContext extends Context {
 }
 
 const WEB_APP_URL =
-  process.env.WEB_APP_URL ?? 'https://web-app-sand-six-48.vercel.app/';
+  process.env.WEB_APP_URL ?? 'https://brilliant-bonbon-ff8144.netlify.app/';
 
 const ADMIN_INLINE_KEYBOARD = Markup.inlineKeyboard([
   [Markup.button.callback('📊 Statistika', 'BOT_STATS')],
