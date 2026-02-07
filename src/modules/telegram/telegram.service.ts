@@ -159,7 +159,8 @@ export class TelegramService {
       await ctx.reply(
         '👑 PRO tariflar:\n\n' +
         '1 oy – 10 000 so‘m\n' +
-        '💳 To‘lov qilish uchun admin bilan bog‘laning.',
+        '💳 To‘lov qilish uchun admin bilan bog‘laning.\n' +
+        'Admin: @Sergelidanman',
       );
       return;
     }
