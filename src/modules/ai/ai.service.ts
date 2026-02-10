@@ -17,7 +17,7 @@ export class AiService {
     private readonly telegramNotify: TelegramNotifyService,
     private readonly usersService: UsersService,
     private readonly subscriptionsService: SubscriptionsService,
-  ) {}
+  ) { }
 
   private readonly openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -118,48 +118,57 @@ Return valid JSON in this exact format:
     };
   }) {
     try {
-      const prompt = `
+      // 1️⃣ Programmatic check (faster & more accurate)
+      let correct = 0;
+      let wrong = 0;
+
+      data.tests.forEach((test, index) => {
+        const userAnswer = data.answers[index];
+        if (userAnswer === -1) {
+          wrong++;
+        } else if (userAnswer === test.correct) {
+          correct++;
+        } else {
+          wrong++;
+        }
+      });
+
+      const total = data.tests.length;
+      const score = Math.round((correct / total) * 100);
+
+      // Estimate Level
+      let level = 'A2';
+      if (score >= 90) level = 'C1';
+      else if (score >= 70) level = 'B2';
+      else if (score >= 40) level = 'B1';
+
+      // 2️⃣ AI Feedback (Short)
+      const feedbackPrompt = `
 You are an IELTS examiner.
+The student took a test and got ${correct} out of ${total} correct (${score}%).
+Level: ${level}
 
-Given these questions and correct answers:
-${JSON.stringify(data.tests)}
-
-User answers:
-${JSON.stringify(data.answers)}
-
-Rules:
-- -1 means skipped
-- Count total, correct and wrong answers
-- Estimate IELTS level
-- Give short feedback (1-2 sentences)
-
-Return ONLY valid JSON:
-{
-  "total": number,
-  "correct": number,
-  "wrong": number,
-  "level": "A2 | B1 | B2 | C1",
-  "feedback": "string"
-}
+Give a very short feedback in English (1-2 sentences).
+Return ONLY the feedback text.
 `;
 
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
+        messages: [{ role: 'user', content: feedbackPrompt }],
+        max_tokens: 100,
+        temperature: 0.5,
       });
 
-      const content = response.choices[0].message.content;
-      if (!content) {
-        throw new Error('Empty AI response');
-      }
+      const feedback =
+        response.choices[0].message.content?.trim() || 'Keep practicing!';
 
-      const result = JSON.parse(
-        content
-          .replace(/```json/g, '')
-          .replace(/```/g, '')
-          .trim(),
-      );
+      const result = {
+        total,
+        correct,
+        wrong,
+        level,
+        feedback,
+      };
 
       // Award points: 10 points per correct answer
       if (data.user?.telegramId && result.correct > 0) {
@@ -173,16 +182,16 @@ Return ONLY valid JSON:
         );
       }
 
-      /* 🔔 Telegram notify (optional) */
-      const percent = Math.round((result.correct / result.total) * 100);
-
+      /* 🔔 Telegram notify */
       const message = `
 📊 *IELTS Test Result*
 
+
+👤 Ism: ${data.user?.firstName}
 ✅ To‘g‘ri: ${result.correct}
 ❌ Xato: ${result.wrong}
 🎯 Daraja: ${result.level}
-📈 Natija: ${percent}%
+📈 Natija: ${score}%
 
 💬 ${result.feedback}
 `;
@@ -217,10 +226,10 @@ Return ONLY valid JSON:
     }
 
     try {
-      const prompt = `
+      const generateWords = async (count: number) => {
+        const prompt = `
 You are an IELTS vocabulary test generator.
-
-Generate EXACTLY 30 UNIQUE English words.
+Generate EXACTLY ${count} UNIQUE English words.
 For each word:
 - Provide 1 correct Uzbek translation
 - Provide 2 incorrect but plausible Uzbek options
@@ -229,11 +238,11 @@ Rules:
 - Uzbek language must be latin
 - Options must be short and clear
 - "correct" must be the INDEX (0, 1 or 2) of the correct option in the "options" array
+- Returned JSON must be an array of ${count} objects
 - Do NOT include any explanations or additional text
-- Do NOT wrap the JSON in markdown code blocks
 
 Output:
-Return ONLY valid JSON in this exact format (array of 10 items):
+Return valid JSON in this exact format:
 [
   {
     "question": "English word",
@@ -243,40 +252,33 @@ Return ONLY valid JSON in this exact format (array of 10 items):
 ]
 `;
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.4,
-        max_tokens: 1000,
-      });
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.5,
+          max_tokens: 1500,
+        });
 
-      const content = response.choices[0].message.content || '[]';
-
-      let tests;
-      try {
+        const content = response.choices[0].message.content || '[]';
         const cleaned = content
           .replace(/```json/gi, '')
           .replace(/```/g, '')
           .trim();
 
-        // Agar butun javob toza JSON bo'lmasa, faqat birinchi massivni ajratib olamiz
         const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
         const jsonText = arrayMatch ? arrayMatch[0] : cleaned;
 
-        tests = JSON.parse(jsonText);
+        return JSON.parse(jsonText);
+      };
 
-        if (!Array.isArray(tests)) {
-          throw new Error('AI did not return an array');
-        }
-      } catch (parseError) {
-        this.logger.error('AI generateTranslateTest parse error', {
-          content,
-          parseError,
-        });
-        throw new InternalServerErrorException(
-          'AI translation test parsing failed',
-        );
-      }
+      // 🚀 Parallel (3 × 10 = 30)
+      const results = await Promise.all([
+        generateWords(10),
+        generateWords(10),
+        generateWords(10),
+      ]);
+
+      const tests = results.flat();
 
       // 📈 Attempt++
       await this.usersService.incrementTestAttempts(telegramId);
@@ -330,22 +332,22 @@ Return ONLY valid JSON in this exact format (array of 10 items):
         return null;
       })
       .filter(Boolean) as {
-      question: string;
-      correctAnswer: string;
-      userAnswer: string;
-    }[];
+        question: string;
+        correctAnswer: string;
+        userAnswer: string;
+      }[];
 
     const mistakesText =
       mistakes.length > 0
         ? mistakes
-            .slice(0, 5)
-            .map(
-              (m, idx) =>
-                `${idx + 1}. Question: "${m.question}"
+          .slice(0, 5)
+          .map(
+            (m, idx) =>
+              `${idx + 1}. Question: "${m.question}"
 User answer: ${m.userAnswer}
 Correct answer: ${m.correctAnswer}`,
-            )
-            .join('\n\n')
+          )
+          .join('\n\n')
         : 'The user answered all questions correctly.';
 
     const prompt = `
