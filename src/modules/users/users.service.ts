@@ -10,7 +10,7 @@ export class UsersService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly repo: Repository<UserEntity>,
-  ) {}
+  ) { }
 
   async create(dto: createUserDto) {
     const exist = await this.repo.findOne({
@@ -221,5 +221,23 @@ export class UsersService {
   ) {
     await this.repo.update({ telegramId }, settings);
     return this.findByTelegramId(telegramId);
+  }
+
+  async addBalance(telegramId: string, amount: number) {
+    const user = await this.findByTelegramId(telegramId);
+    if (user) {
+      const newBalance = Number(user.balance || 0) + amount;
+      await this.repo.update({ telegramId }, { balance: newBalance });
+    }
+  }
+
+  async incrementReferralCount(telegramId: string) {
+    const user = await this.findByTelegramId(telegramId);
+    if (user) {
+      await this.repo.update(
+        { telegramId },
+        { referralCount: (user.referralCount || 0) + 1 },
+      );
+    }
   }
 }

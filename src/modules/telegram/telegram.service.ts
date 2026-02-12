@@ -14,6 +14,7 @@ interface BotSession {
   | 'WAIT_REASON_FOR_REMOVE_PRO';
   userId?: number;
   removeReason?: string;
+  referredBy?: string;
 }
 
 interface BotContext extends Context {
@@ -36,7 +37,10 @@ const USER_INLINE_KEYBOARD = Markup.inlineKeyboard([
   [Markup.button.webApp('🌐 Web App ni ochish', WEB_APP_URL)],
 ]);
 
-const USER_REPLY_KEYBOARD = Markup.keyboard([['👑 PRO obuna olish']])
+const USER_REPLY_KEYBOARD = Markup.keyboard([
+  ['👑 PRO obuna olish'],
+  ['👥 Referal', '💰 Hisobim'],
+])
   .resize()
   .oneTime(false);
 
@@ -90,6 +94,16 @@ export class TelegramService {
     const telegramId = String(ctx.from.id);
     await this.usersService.updateActivity(telegramId);
     const user = await this.usersService.findByTelegramId(telegramId);
+
+    // Referral code logic
+    const text = (ctx.message as any)?.text || '';
+    const args = text.split(' ');
+    const referralCode = args.length > 1 ? args[1] : null;
+
+    if (referralCode && referralCode !== telegramId) {
+      if (!ctx.session) ctx.session = {};
+      ctx.session.referredBy = referralCode;
+    }
 
     // 2️⃣ AGAR USER BOR BO‘LSA
     if (user) {
@@ -162,6 +176,26 @@ export class TelegramService {
         '💳 To‘lov qilish uchun admin bilan bog‘laning.\n' +
         'Admin: @Sergelidanman',
       );
+      return;
+    }
+
+    if (text === '👥 Referal') {
+      const botUsername = ctx.botInfo.username;
+      const refLink = `https://t.me/${botUsername}?start=${telegramId}`;
+      const user = await this.usersService.findByTelegramId(telegramId);
+
+      await ctx.reply(
+        `👥 Referal bo'limi\n\n` +
+        `Sizning referal silkangiz:\n${refLink}\n\n` +
+        `Har bir taklif qilingan do'stingiz uchun 1000 so'm olasiz.\n\n` +
+        `Siz taklif qilganlar: ${user?.referralCount || 0} ta`,
+      );
+      return;
+    }
+
+    if (text === '💰 Hisobim') {
+      const user = await this.usersService.findByTelegramId(telegramId);
+      await ctx.reply(`💰 Sizning hisobingiz: ${Number(user?.balance || 0)} so'm`);
       return;
     }
 
@@ -309,11 +343,28 @@ export class TelegramService {
       return;
     }
 
+    const referredBy = ctx.session?.referredBy;
+
     await this.usersService.create({
       telegramId,
       phone: contact.phone_number,
       username: ctx.from.username ?? '',
+      referredBy: referredBy,
     });
+
+    if (referredBy) {
+      await this.usersService.addBalance(referredBy, 1000);
+      await this.usersService.incrementReferralCount(referredBy);
+      try {
+        await ctx.telegram.sendMessage(
+          referredBy,
+          `🎉 Tabriklaymiz! Referalingiz botga qo'shildi va hisobingizga 1000 so'm qo'shildi.`,
+        );
+      } catch (e) {
+        this.logger.error(`Could not notify referrer ${referredBy}: ${e.message}`);
+      }
+      ctx.session.referredBy = undefined;
+    }
 
     await ctx.reply('✅ Ro‘yxatdan o‘tdingiz! Xush kelibsiz 🎉');
     await ctx.reply(

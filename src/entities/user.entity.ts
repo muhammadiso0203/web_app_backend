@@ -61,6 +61,15 @@ export class UserEntity {
   @Column({ default: false })
   hasEnteredWebApp: boolean;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  balance: number;
+
+  @Column({ nullable: true })
+  referredBy: string;
+
+  @Column({ default: 0 })
+  referralCount: number;
+
   @CreateDateColumn()
   createdAt: Date;
 }

@@ -27,4 +27,9 @@ export class createUserDto {
   @ApiProperty({ required: false, type: String, format: 'date-time' })
   @IsOptional()
   lastActiveAt?: Date;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  referredBy?: string;
 }
