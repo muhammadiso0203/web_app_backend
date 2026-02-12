@@ -20,7 +20,6 @@ export class SubscriptionsService {
   ) {}
 
   // ✅ PRO bormi yo‘qmi (asosiy tekshiruv)
-  // ✅ PRO bormi yo‘qmi (asosiy tekshiruv)
   async isUserPro(telegramId: string): Promise<boolean> {
     const now = new Date();
 

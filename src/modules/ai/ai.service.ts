@@ -37,9 +37,9 @@ export class AiService {
     // 🛡 PRO + limit
     const isPro = await this.subscriptionsService.hasActivePro(telegramId);
 
-    if (!isPro && user.testAttempts >= 3) {
+    if (!isPro && user.dailyTestsCount >= 3) {
       throw new ForbiddenException(
-        'Sizning bepul urinishlaringiz tugadi. Davom etish uchun PRO obunani sotib oling.',
+        'Sizning bugungi bepul urinishlaringiz tugadi. Davom etish uchun PRO obunani sotib oling yoki ertagacha kuting.',
       );
     }
 
@@ -219,9 +219,9 @@ Return ONLY the feedback text.
     // 🛡 PRO + limit
     const isPro = await this.subscriptionsService.hasActivePro(telegramId);
 
-    if (!isPro && user.testAttempts >= 3) {
+    if (!isPro && user.dailyTestsCount >= 3) {
       throw new ForbiddenException(
-        'Sizning bepul urinishlaringiz tugadi. Davom etish uchun PRO obunani sotib oling.',
+        'Sizning bugungi bepul urinishlaringiz tugadi. Davom etish uchun PRO obunani sotib oling yoki ertagacha kuting.',
       );
     }
 
